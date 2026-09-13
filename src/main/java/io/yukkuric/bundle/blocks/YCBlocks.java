@@ -30,7 +30,7 @@ public class YCBlocks {
     public static final DeferredBlock<MengerSponge> MENGER_SPONGE = build(MengerSponge.ID, MengerSponge::new);
 
     // BE
-    public static final DeferredHolder<BlockEntityType<?>, ?> BE_MENGER_SPONGE = BE_TYPES.register(MengerSponge.ID, () -> {
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<MengerSpongeBE>> BE_MENGER_SPONGE = BE_TYPES.register(MengerSponge.ID, () -> {
         var sponge = YCBlocks.MENGER_SPONGE.get();
         return BlockEntityType.Builder.of(MengerSpongeBE::new, sponge).build(null);
     });

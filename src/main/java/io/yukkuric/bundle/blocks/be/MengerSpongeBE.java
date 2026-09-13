@@ -3,6 +3,7 @@ package io.yukkuric.bundle.blocks.be;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.Containers;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -24,6 +25,10 @@ public class MengerSpongeBE extends BlockEntity {
 
     public MengerSpongeBE(BlockPos pos, BlockState state) {
         super(BE_MENGER_SPONGE.get(), pos, state);
+    }
+
+    public ItemStack getExemplar() {
+        return exemplar;
     }
 
     public FluidStack getFluid() {
@@ -50,10 +55,26 @@ public class MengerSpongeBE extends BlockEntity {
     @Override
     protected void saveAdditional(CompoundTag nbt, HolderLookup.Provider provider) {
         super.saveAdditional(nbt, provider);
+        saveCustomData(nbt, provider);
+    }
+
+    private void saveCustomData(CompoundTag nbt, HolderLookup.Provider provider) {
         if (!exemplar.isEmpty()) nbt.put("Exemplar", exemplar.save(provider));
         nbt.putInt("Total", total);
         if (!fluid.isEmpty()) nbt.put("Fluid", fluid.save(provider));
         nbt.putInt("Energy", energy);
+    }
+
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider provider) {
+        CompoundTag tag = new CompoundTag();
+        saveCustomData(tag, provider);
+        return tag;
+    }
+
+    @Override
+    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     public void syncAndSave() {
