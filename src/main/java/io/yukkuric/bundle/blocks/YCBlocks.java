@@ -1,12 +1,16 @@
 package io.yukkuric.bundle.blocks;
 
+import com.google.common.collect.ImmutableSet;
 import io.yukkuric.bundle.blocks.be.MengerSpongeBE;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.*;
+import net.neoforged.neoforge.registries.DeferredBlock;
+import net.neoforged.neoforge.registries.DeferredRegister;
 
+import java.util.Arrays;
 import java.util.function.Supplier;
 
 import static io.yukkuric.bundle.YukkuriCBundleMod.MOD_ID;
@@ -20,6 +24,12 @@ public class YCBlocks {
         BLOCK_ITEMS.registerSimpleBlockItem(name, ret);
         return ret;
     }
+    private static <B extends BlockEntity> Supplier<BlockEntityType<B>> buildBE(String name, BlockEntityType.BlockEntitySupplier<B> getter, Supplier<Block>... blockGetters) {
+        return BE_TYPES.register(name, () -> {
+            var targets = ImmutableSet.copyOf(Arrays.stream(blockGetters).map(Supplier::get).toList());
+            return new BlockEntityType(getter, targets, null);
+        });
+    }
     public static void register(IEventBus bus) {
         BLOCKS.register(bus);
         BLOCK_ITEMS.register(bus);
@@ -30,8 +40,5 @@ public class YCBlocks {
     public static final DeferredBlock<MengerSponge> MENGER_SPONGE = build(MengerSponge.ID, MengerSponge::new);
 
     // BE
-    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<MengerSpongeBE>> BE_MENGER_SPONGE = BE_TYPES.register(MengerSponge.ID, () -> {
-        var sponge = YCBlocks.MENGER_SPONGE.get();
-        return BlockEntityType.Builder.of(MengerSpongeBE::new, sponge).build(null);
-    });
+    public static final Supplier<BlockEntityType<MengerSpongeBE>> BE_MENGER_SPONGE = buildBE(MengerSponge.ID, MengerSpongeBE::new, YCBlocks.MENGER_SPONGE::get);
 }
