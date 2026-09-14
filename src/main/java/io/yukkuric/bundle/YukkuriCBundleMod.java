@@ -3,6 +3,7 @@ package io.yukkuric.bundle;
 import com.mojang.logging.LogUtils;
 import io.yukkuric.bundle.blocks.YCBlocks;
 import io.yukkuric.bundle.client.blocks.MengerSpongeRenderer;
+import io.yukkuric.bundle.client.blocks.MengerSpongeVoidRenderer;
 import io.yukkuric.bundle.items.YCItems;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -52,6 +53,7 @@ public class YukkuriCBundleMod {
         @SubscribeEvent
         public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
             event.registerBlockEntityRenderer(YCBlocks.BE_MENGER_SPONGE.get(), MengerSpongeRenderer::new);
+            event.registerBlockEntityRenderer(YCBlocks.BE_MENGER_SPONGE_VOID.get(), MengerSpongeVoidRenderer::new);
         }
     }
 }
