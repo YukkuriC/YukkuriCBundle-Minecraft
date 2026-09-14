@@ -27,6 +27,10 @@ public class MengerSpongeBE extends BlockEntity {
         super(BE_MENGER_SPONGE.get(), pos, state);
     }
 
+    public boolean isEmpty() {
+        return total <= 0;
+    }
+
     public ItemStack getExemplar() {
         return exemplar;
     }

@@ -24,9 +24,9 @@ public class MengerSpongeRenderer implements BlockEntityRenderer<MengerSpongeBE>
     @Override
     public void render(MengerSpongeBE be, float partialTick, PoseStack pose, MultiBufferSource buffer,
                        int packedLight, int packedOverlay) {
-        ItemStack exemplar = be.getExemplar();
         Level level = be.getLevel();
-        if (exemplar.isEmpty() || level == null) return;
+        if (be.isEmpty() || level == null) return;
+        ItemStack exemplar = be.getExemplar();
 
         pose.pushPose();
         pose.translate(0.5, 0.5, 0.5);
