@@ -2,6 +2,7 @@ package io.yukkuric.bundle.blocks;
 
 import com.google.common.collect.ImmutableSet;
 import io.yukkuric.bundle.blocks.be.MengerSpongeBE;
+import io.yukkuric.bundle.blocks.be.MengerSpongeVoidBE;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -38,7 +39,9 @@ public class YCBlocks {
 
     // blocks
     public static final DeferredBlock<MengerSponge> MENGER_SPONGE = build(MengerSponge.ID, MengerSponge::new);
+    public static final DeferredBlock<MengerSpongeVoid> MENGER_SPONGE_VOID = build(MengerSpongeVoid.ID, MengerSpongeVoid::new);
 
     // BE
     public static final Supplier<BlockEntityType<MengerSpongeBE>> BE_MENGER_SPONGE = buildBE(MengerSponge.ID, MengerSpongeBE::new, YCBlocks.MENGER_SPONGE::get);
+    public static final Supplier<BlockEntityType<MengerSpongeVoidBE>> BE_MENGER_SPONGE_VOID = buildBE(MengerSpongeVoid.ID, MengerSpongeVoidBE::new, YCBlocks.MENGER_SPONGE_VOID::get);
 }

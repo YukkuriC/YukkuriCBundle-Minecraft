@@ -16,8 +16,6 @@ import net.neoforged.neoforge.items.IItemHandler;
 import static io.yukkuric.bundle.blocks.YCBlocks.BE_MENGER_SPONGE;
 
 public class MengerSpongeBE extends BlockEntity {
-    public static final int MAX_CAPACITY = Integer.MAX_VALUE;
-
     private ItemStack exemplar = ItemStack.EMPTY;
     private int total = 0;
     private FluidStack fluid = FluidStack.EMPTY;
@@ -169,7 +167,7 @@ public class MengerSpongeBE extends BlockEntity {
 
         @Override
         public int getTankCapacity(int tank) {
-            return MAX_CAPACITY;
+            return Integer.MAX_VALUE;
         }
 
         @Override
@@ -182,7 +180,7 @@ public class MengerSpongeBE extends BlockEntity {
             if (resource.isEmpty()) return 0;
             long desired = (long) resource.getAmount() * 3;
             if (be.fluid.isEmpty()) {
-                int added = (int) Math.min(desired, MAX_CAPACITY);
+                int added = (int) Math.min(desired, Integer.MAX_VALUE);
                 if (action.execute()) {
                     be.setFluid(new FluidStack(resource.getFluid(), added));
                     be.syncAndSave();
@@ -190,7 +188,7 @@ public class MengerSpongeBE extends BlockEntity {
                 return added;
             }
             if (!FluidStack.isSameFluidSameComponents(be.fluid, resource)) return 0;
-            int added = (int) Math.min(desired, (long) MAX_CAPACITY - be.fluid.getAmount());
+            int added = (int) Math.min(desired, (long) Integer.MAX_VALUE - be.fluid.getAmount());
             if (added > 0 && action.execute()) {
                 be.fluid.grow(added);
                 be.syncAndSave();
@@ -235,7 +233,7 @@ public class MengerSpongeBE extends BlockEntity {
         @Override
         public int receiveEnergy(int maxReceive, boolean simulate) {
             if (maxReceive <= 0) return 0;
-            int added = (int) Math.min((long) maxReceive * 3, (long) MAX_CAPACITY - be.energy);
+            int added = (int) Math.min((long) maxReceive * 3, (long) Integer.MAX_VALUE - be.energy);
             if (added > 0 && !simulate) {
                 be.energy += added;
                 be.syncAndSave();
@@ -261,7 +259,7 @@ public class MengerSpongeBE extends BlockEntity {
 
         @Override
         public int getMaxEnergyStored() {
-            return MAX_CAPACITY;
+            return Integer.MAX_VALUE;
         }
 
         @Override
