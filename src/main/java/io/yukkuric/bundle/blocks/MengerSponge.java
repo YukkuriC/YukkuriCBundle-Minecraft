@@ -2,7 +2,8 @@ package io.yukkuric.bundle.blocks;
 
 import io.yukkuric.bundle.blocks.be.MengerSpongeBE;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.*;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -39,28 +40,7 @@ public class MengerSponge extends AbstractMengerSponge<MengerSpongeBE> {
                 return ItemInteractionResult.CONSUME;
             }
         }
-        if (be.getExemplar().isEmpty()) {
-            var itemCap = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
-            var remaining = itemCap.insertItem(0, stack, false);
-            if (!player.getAbilities().instabuild) player.setItemInHand(hand, remaining);
-            return ItemInteractionResult.CONSUME;
-        }
         return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-    }
-
-    @Override
-    public InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (level.isClientSide) return InteractionResult.SUCCESS;
-        if (!(level.getBlockEntity(pos) instanceof MengerSpongeBE be)) return InteractionResult.PASS;
-        if (!be.getExemplar().isEmpty()) {
-            var itemCap = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
-            var extracted = itemCap.extractItem(0, 3, false);
-            if (!extracted.isEmpty()) {
-                Containers.dropItemStack(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, extracted);
-                return InteractionResult.CONSUME;
-            }
-        }
-        return InteractionResult.PASS;
     }
 
     @Override
