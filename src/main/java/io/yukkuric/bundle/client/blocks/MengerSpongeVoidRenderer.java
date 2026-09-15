@@ -8,6 +8,7 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.Direction;
+import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -15,7 +16,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.WeakHashMap;
 
-public class MengerSpongeVoidRenderer implements BlockEntityRenderer<MengerSpongeVoidBE> {
+public class MengerSpongeVoidRenderer implements RendererCFG, BlockEntityRenderer<MengerSpongeVoidBE> {
     /**
      * 循环节奏：每 X + Y 秒一个周期。X 秒内不渲染任何故障（静默），
      * 随后 Y 秒内逐帧随机抖动 RGB 三个错位通道，然后回到静默，如此循环。
@@ -26,6 +27,7 @@ public class MengerSpongeVoidRenderer implements BlockEntityRenderer<MengerSpong
     private static final double ON_MAX = 0.5;    // Y 的最大故障秒数
     /**
      * 每个 RGB 通道相对方块原位的最大错位距离（单位：格），错位在 ±MAX_SHIFT 内随机。
+     * 实际幅度随相机距离在 FADE_START~FADE_END 间线性衰减至 0。
      */
     private static final double MAX_SHIFT = 0.09;
     /**
@@ -69,17 +71,18 @@ public class MengerSpongeVoidRenderer implements BlockEntityRenderer<MengerSpong
 
     @Override
     public boolean shouldRender(MengerSpongeVoidBE be, Vec3 cameraPos) {
-        return be.getBlockPos().distToCenterSqr(cameraPos.x, cameraPos.y, cameraPos.z) <= 25.0;
+        return be.getBlockPos().distToCenterSqr(cameraPos.x, cameraPos.y, cameraPos.z) <= FADE_END * FADE_END;
     }
 
     private static final double[] SHIFT_R = new double[3];
     private static final double[] SHIFT_G = new double[3];
     private static final double[] SHIFT_B = new double[3];
 
-    private static void fillPass(double[] out, RandomSource random) {
-        out[0] = (random.nextDouble() * 2.0 - 1.0) * MAX_SHIFT;
-        out[1] = (random.nextDouble() * 2.0 - 1.0) * MAX_SHIFT;
-        out[2] = (random.nextDouble() * 2.0 - 1.0) * MAX_SHIFT;
+    private static void fillPass(double[] out, RandomSource random, float fade) {
+        double shift = MAX_SHIFT * fade;
+        out[0] = (random.nextDouble() * 2.0 - 1.0) * shift;
+        out[1] = (random.nextDouble() * 2.0 - 1.0) * shift;
+        out[2] = (random.nextDouble() * 2.0 - 1.0) * shift;
     }
 
     private static void updatePhase(State state, long gameTime, RandomSource random) {
@@ -105,13 +108,19 @@ public class MengerSpongeVoidRenderer implements BlockEntityRenderer<MengerSpong
         State state = STATES.computeIfAbsent(be, k -> new State());
         updatePhase(state, gameTime, level.random);
 
+        // FADE_START~FADE_END 间整体错位幅度线性淡出
+        var cam = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        double distSqr = be.getBlockPos().distToCenterSqr(cam.x, cam.y, cam.z);
+        float fade = (float) Mth.clamp((FADE_END - Math.sqrt(distSqr)) / (FADE_END - FADE_START), 0.0, 1.0);
+        if (fade <= 0) return;
+
         // X 秒静默期：不渲染任何故障
         if (!state.glitching) return;
 
-        // Y 秒故障期：逐帧随机重掷三个通道的错位
-        fillPass(SHIFT_R, level.random);
-        fillPass(SHIFT_G, level.random);
-        fillPass(SHIFT_B, level.random);
+        // Y 秒故障期：逐帧随机重掷三个通道的错位（幅度随距离衰减）
+        fillPass(SHIFT_R, level.random, fade);
+        fillPass(SHIFT_G, level.random, fade);
+        fillPass(SHIFT_B, level.random, fade);
 
         BlockState blockState = be.getBlockState();
         BakedModel model = Minecraft.getInstance().getBlockRenderer().getBlockModel(blockState);
