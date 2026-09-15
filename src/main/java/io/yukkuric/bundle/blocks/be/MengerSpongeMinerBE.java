@@ -59,10 +59,25 @@ public class MengerSpongeMinerBE extends AbstractMengerSpongeDataBE {
         private final MengerSpongeMinerBE be;
         private final List<ItemStack> stacksSrc = getOreBlocks();
         private static final int RAND_RANGE = 9;
+        private int offsetStep = 0;
 
         public ItemCap(MengerSpongeMinerBE be) {
             super(RAND_RANGE);
             this.be = be;
+        }
+
+        private int offsetSlot(int slot) {
+            return (slot + offsetStep) % RAND_RANGE;
+        }
+        private ItemStack ensureStack(int slot) {
+            var stack = stacks.get(slot);
+            if (be.level == null || be.level.isClientSide) return stack;
+            if (stack.isEmpty()) {
+                stack = stacksSrc.get((int) (Math.random() * stacksSrc.size()));
+                stack = stack.copyWithCount(stack.getMaxStackSize());
+                stacks.set(slot, stack);
+            }
+            return stack;
         }
 
         @Override
@@ -71,23 +86,28 @@ public class MengerSpongeMinerBE extends AbstractMengerSpongeDataBE {
         }
         @Override
         public ItemStack getStackInSlot(int slot) {
+            return getStackInSlot(slot, true);
+        }
+        public ItemStack getStackInSlot(int slot, boolean doOffset) {
             if (slot < 0) return ItemStack.EMPTY;
             if (slot >= RAND_RANGE) return stacksSrc.get((slot - RAND_RANGE) % stacksSrc.size()).copy();
-
-            var stack = stacks.get(slot);
-            if (stack.isEmpty()) {
-                stack = stacksSrc.get((int) (Math.random() * stacksSrc.size()));
-                stack = stack.copyWithCount(stack.getMaxStackSize());
-                stacks.set(slot, stack);
-            }
-            return stack;
+            if (doOffset) slot = offsetSlot(slot);
+            return ensureStack(slot);
         }
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
             if (slot < 0) return ItemStack.EMPTY;
             if (slot >= RAND_RANGE) return stacksSrc.get((slot - RAND_RANGE) % stacksSrc.size()).copyWithCount(amount);
-            getStackInSlot(slot);
-            return super.extractItem(slot, amount, simulate);
+            slot = offsetSlot(slot);
+
+            var ret = ensureStack(slot);
+            if (!simulate) {
+                stacks.set(slot, ItemStack.EMPTY);
+                offsetStep = (offsetStep + 1) % RAND_RANGE;
+                ensureStack(slot);
+                onContentsChanged(slot);
+            }
+            return ret;
         }
 
         @Override

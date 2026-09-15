@@ -70,7 +70,7 @@ public class MengerSpongeMinerRenderer implements RendererCFG, BlockEntityRender
         float sinTilt = Mth.sin(ORBIT_TILT), cosTilt = Mth.cos(ORBIT_TILT);
 
         for (int i = 0; i < ITEM_COUNT; i++) {
-            var stack = be.itemCap.getStackInSlot(i);
+            var stack = be.itemCap.getStackInSlot(i, false);
             float orbit = orbitBase + (float) (Math.PI * 2 * i / ITEM_COUNT);
             // 轨道面内绕圈，先绕 X 轴倾斜 ORBIT_TILT，再绕 Y 轴进动倾角方向
             float x = Mth.cos(orbit) * ORBIT_RADIUS;
