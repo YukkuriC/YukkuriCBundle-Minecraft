@@ -1,13 +1,16 @@
 package io.yukkuric.bundle.blocks.be;
 
+import io.yukkuric.bundle.blocks.YCBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.Containers;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
@@ -15,7 +18,8 @@ import net.neoforged.neoforge.items.IItemHandler;
 
 import static io.yukkuric.bundle.blocks.YCBlocks.BE_MENGER_SPONGE;
 
-public class MengerSpongeBE extends BlockEntity {
+@EventBusSubscriber
+public class MengerSpongeBE extends AbstractMengerSpongeDataBE {
     private ItemStack exemplar = ItemStack.EMPTY;
     private int total = 0;
     private FluidStack fluid = FluidStack.EMPTY;
@@ -42,8 +46,7 @@ public class MengerSpongeBE extends BlockEntity {
     }
 
     @Override
-    protected void loadAdditional(CompoundTag nbt, HolderLookup.Provider provider) {
-        super.loadAdditional(nbt, provider);
+    protected void loadCustomData(CompoundTag nbt, HolderLookup.Provider provider) {
         if (nbt.get("Exemplar") instanceof CompoundTag exemplarTag) {
             exemplar = ItemStack.parse(provider, exemplarTag).orElse(ItemStack.EMPTY);
         }
@@ -53,14 +56,8 @@ public class MengerSpongeBE extends BlockEntity {
         }
         energy = nbt.getInt("Energy");
     }
-
     @Override
-    protected void saveAdditional(CompoundTag nbt, HolderLookup.Provider provider) {
-        super.saveAdditional(nbt, provider);
-        saveCustomData(nbt, provider);
-    }
-
-    private void saveCustomData(CompoundTag nbt, HolderLookup.Provider provider) {
+    protected void saveCustomData(CompoundTag nbt, HolderLookup.Provider provider) {
         if (!exemplar.isEmpty()) nbt.put("Exemplar", exemplar.save(provider));
         nbt.putInt("Total", total);
         if (!fluid.isEmpty()) nbt.put("Fluid", fluid.save(provider));
@@ -74,16 +71,6 @@ public class MengerSpongeBE extends BlockEntity {
         return tag;
     }
 
-    @Override
-    public ClientboundBlockEntityDataPacket getUpdatePacket() {
-        return ClientboundBlockEntityDataPacket.create(this);
-    }
-
-    public void syncAndSave() {
-        setChanged();
-        if (level != null) level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
-    }
-
     public void dropContents() {
         if (level == null || level.isClientSide || exemplar.isEmpty() || total <= 0) return;
         Containers.dropItemStack(level, worldPosition.getX(), worldPosition.getY(), worldPosition.getZ(), exemplar.copyWithCount(total));
@@ -91,6 +78,7 @@ public class MengerSpongeBE extends BlockEntity {
         setChanged();
     }
 
+    //#region forge cap
     //#region item
     public static class ItemCap implements IItemHandler {
         private final MengerSpongeBE be;
@@ -271,6 +259,15 @@ public class MengerSpongeBE extends BlockEntity {
         public boolean canReceive() {
             return true;
         }
+    }
+    //#endregion
+
+    @SubscribeEvent
+    public static void registerCap(RegisterCapabilitiesEvent event) {
+        var type = YCBlocks.BE_MENGER_SPONGE.get();
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, type, (be, side) -> new MengerSpongeBE.ItemCap(be));
+        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, type, (be, side) -> new MengerSpongeBE.FluidCap(be));
+        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, type, (be, side) -> new MengerSpongeBE.EnergyCap(be));
     }
     //#endregion
 }

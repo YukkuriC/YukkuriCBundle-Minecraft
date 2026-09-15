@@ -1,9 +1,14 @@
 package io.yukkuric.bundle.blocks.be;
 
+import io.yukkuric.bundle.blocks.YCBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
@@ -11,11 +16,13 @@ import net.neoforged.neoforge.items.IItemHandler;
 
 import static io.yukkuric.bundle.blocks.YCBlocks.BE_MENGER_SPONGE_VOID;
 
+@EventBusSubscriber
 public class MengerSpongeVoidBE extends BlockEntity {
     public MengerSpongeVoidBE(BlockPos pos, BlockState state) {
         super(BE_MENGER_SPONGE_VOID.get(), pos, state);
     }
 
+    //#region forge cap
     //#region item
     public static class ItemCap implements IItemHandler {
         private final MengerSpongeVoidBE be;
@@ -138,6 +145,15 @@ public class MengerSpongeVoidBE extends BlockEntity {
         public boolean canReceive() {
             return true;
         }
+    }
+    //#endregion
+
+    @SubscribeEvent
+    public static void registerCap(RegisterCapabilitiesEvent event) {
+        var type = YCBlocks.BE_MENGER_SPONGE_VOID.get();
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, type, (be, side) -> new MengerSpongeVoidBE.ItemCap(be));
+        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, type, (be, side) -> new MengerSpongeVoidBE.FluidCap(be));
+        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, type, (be, side) -> new MengerSpongeVoidBE.EnergyCap(be));
     }
     //#endregion
 }
