@@ -8,7 +8,6 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.Direction;
-import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -71,7 +70,7 @@ public class MengerSpongeVoidRenderer implements RendererCFG, BlockEntityRendere
 
     @Override
     public boolean shouldRender(MengerSpongeVoidBE be, Vec3 cameraPos) {
-        return be.getBlockPos().distToCenterSqr(cameraPos.x, cameraPos.y, cameraPos.z) <= FADE_END * FADE_END;
+        return RendererCFG.shouldRender(be, cameraPos);
     }
 
     private static final double[] SHIFT_R = new double[3];
@@ -109,9 +108,7 @@ public class MengerSpongeVoidRenderer implements RendererCFG, BlockEntityRendere
         updatePhase(state, gameTime, level.random);
 
         // FADE_START~FADE_END 间整体错位幅度线性淡出
-        var cam = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
-        double distSqr = be.getBlockPos().distToCenterSqr(cam.x, cam.y, cam.z);
-        float fade = (float) Mth.clamp((FADE_END - Math.sqrt(distSqr)) / (FADE_END - FADE_START), 0.0, 1.0);
+        float fade = RendererCFG.getFadeFactor(be);
         if (fade <= 0) return;
 
         // X 秒静默期：不渲染任何故障

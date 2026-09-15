@@ -48,7 +48,7 @@ public class MengerSpongeMinerRenderer implements RendererCFG, BlockEntityRender
 
     @Override
     public boolean shouldRender(MengerSpongeMinerBE be, Vec3 cameraPos) {
-        return be.getBlockPos().distToCenterSqr(cameraPos.x, cameraPos.y, cameraPos.z) <= FADE_END * FADE_END;
+        return RendererCFG.shouldRender(be, cameraPos);
     }
 
     @Override
@@ -60,9 +60,7 @@ public class MengerSpongeMinerRenderer implements RendererCFG, BlockEntityRender
     public void render(MengerSpongeMinerBE be, float partialTick, PoseStack pose, MultiBufferSource buffer, int packedLight, int packedOverlay) {
         Level level = be.getLevel();
         if (level == null) return;
-        var cam = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
-        double distSqr = be.getBlockPos().distToCenterSqr(cam.x, cam.y, cam.z);
-        float fade = (float) Mth.clamp((FADE_END - Math.sqrt(distSqr)) / (FADE_END - FADE_START), 0.0, 1.0);
+        float fade = RendererCFG.getFadeFactor(be);
         if (fade <= 0) return;
         float time = level.getGameTime() + partialTick;
         float orbitBase = time * ORBIT_RADS_PER_TICK;
