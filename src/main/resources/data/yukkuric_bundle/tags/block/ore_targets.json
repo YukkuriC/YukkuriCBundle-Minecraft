@@ -1,0 +1,15 @@
+{
+  "values": [
+    "#c:ores",
+    "minecraft:stone",
+    "minecraft:deepslate",
+    "minecraft:netherrack",
+    "minecraft:end_stone",
+    "minecraft:amethyst_cluster",
+    "minecraft:sculk",
+    {
+      "id": "#yukkuric_bundle:create/ore_targets",
+      "required": false
+    }
+  ]
+}

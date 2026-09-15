@@ -6,7 +6,6 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
@@ -20,6 +19,7 @@ import net.neoforged.neoforge.items.ItemStackHandler;
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.yukkuric.bundle.YukkuriCBundleMod.modLoc;
 import static io.yukkuric.bundle.blocks.YCBlocks.BE_MENGER_SPONGE_MINER;
 
 @EventBusSubscriber
@@ -38,7 +38,7 @@ public class MengerSpongeMinerBE extends AbstractMengerSpongeDataBE {
     }
 
     //#region forge cap
-    private static final TagKey<Block> TAG_ORES = TagKey.create(Registries.BLOCK, ResourceLocation.parse("c:ores"));
+    private static final TagKey<Block> TAG_ORES = TagKey.create(Registries.BLOCK, modLoc("ore_targets"));
     private static List<ItemStack> ORE_BLOCKS = null;
     public static List<ItemStack> getOreBlocks() {
         if (ORE_BLOCKS == null) {
