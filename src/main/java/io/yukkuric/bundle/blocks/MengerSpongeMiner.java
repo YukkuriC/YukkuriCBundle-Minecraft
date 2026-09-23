@@ -5,7 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 
 public class MengerSpongeMiner extends AbstractMengerSponge<MengerSpongeMinerBE> {
-    public static final String ID = "menger_sponge_miner";
+    public static final String ID = "menger_sponge/miner";
 
     public MengerSpongeMiner() {
         super();

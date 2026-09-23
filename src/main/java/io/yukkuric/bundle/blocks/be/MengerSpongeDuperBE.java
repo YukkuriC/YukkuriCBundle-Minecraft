@@ -16,17 +16,17 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.items.IItemHandler;
 
-import static io.yukkuric.bundle.blocks.YCBlocks.BE_MENGER_SPONGE;
+import static io.yukkuric.bundle.blocks.YCBlocks.BE_MENGER_SPONGE_DUPER;
 
 @EventBusSubscriber
-public class MengerSpongeBE extends AbstractMengerSpongeDataBE {
+public class MengerSpongeDuperBE extends AbstractMengerSpongeDataBE {
     private ItemStack exemplar = ItemStack.EMPTY;
     private int total = 0;
     private FluidStack fluid = FluidStack.EMPTY;
     private int energy = 0;
 
-    public MengerSpongeBE(BlockPos pos, BlockState state) {
-        super(BE_MENGER_SPONGE.get(), pos, state);
+    public MengerSpongeDuperBE(BlockPos pos, BlockState state) {
+        super(BE_MENGER_SPONGE_DUPER.get(), pos, state);
     }
 
     public boolean isEmpty() {
@@ -81,9 +81,9 @@ public class MengerSpongeBE extends AbstractMengerSpongeDataBE {
     //#region forge cap
     //#region item
     public static class ItemCap implements IItemHandler {
-        private final MengerSpongeBE be;
+        private final MengerSpongeDuperBE be;
 
-        public ItemCap(MengerSpongeBE be) {
+        public ItemCap(MengerSpongeDuperBE be) {
             this.be = be;
         }
 
@@ -137,9 +137,9 @@ public class MengerSpongeBE extends AbstractMengerSpongeDataBE {
 
     //#region fluid
     public static class FluidCap implements IFluidHandler {
-        private final MengerSpongeBE be;
+        private final MengerSpongeDuperBE be;
 
-        public FluidCap(MengerSpongeBE be) {
+        public FluidCap(MengerSpongeDuperBE be) {
             this.be = be;
         }
 
@@ -212,9 +212,9 @@ public class MengerSpongeBE extends AbstractMengerSpongeDataBE {
 
     //#region energy
     public static class EnergyCap implements IEnergyStorage {
-        private final MengerSpongeBE be;
+        private final MengerSpongeDuperBE be;
 
-        public EnergyCap(MengerSpongeBE be) {
+        public EnergyCap(MengerSpongeDuperBE be) {
             this.be = be;
         }
 
@@ -264,10 +264,10 @@ public class MengerSpongeBE extends AbstractMengerSpongeDataBE {
 
     @SubscribeEvent
     public static void registerCap(RegisterCapabilitiesEvent event) {
-        var type = YCBlocks.BE_MENGER_SPONGE.get();
-        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, type, (be, side) -> new MengerSpongeBE.ItemCap(be));
-        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, type, (be, side) -> new MengerSpongeBE.FluidCap(be));
-        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, type, (be, side) -> new MengerSpongeBE.EnergyCap(be));
+        var type = YCBlocks.BE_MENGER_SPONGE_DUPER.get();
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, type, (be, side) -> new MengerSpongeDuperBE.ItemCap(be));
+        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, type, (be, side) -> new MengerSpongeDuperBE.FluidCap(be));
+        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, type, (be, side) -> new MengerSpongeDuperBE.EnergyCap(be));
     }
     //#endregion
 }

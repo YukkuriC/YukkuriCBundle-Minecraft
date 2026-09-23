@@ -3,7 +3,7 @@ package io.yukkuric.bundle.client.blocks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
-import io.yukkuric.bundle.blocks.be.MengerSpongeBE;
+import io.yukkuric.bundle.blocks.be.MengerSpongeDuperBE;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -19,7 +19,7 @@ import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtension
 import net.neoforged.neoforge.client.textures.FluidSpriteCache;
 import net.neoforged.neoforge.fluids.FluidStack;
 
-public class MengerSpongeRenderer implements RendererCFG, BlockEntityRenderer<MengerSpongeBE> {
+public class MengerSpongeDuperRenderer implements RendererCFG, BlockEntityRenderer<MengerSpongeDuperBE> {
     /**
      * 中央样本物品的基础缩放
      */
@@ -33,16 +33,16 @@ public class MengerSpongeRenderer implements RendererCFG, BlockEntityRenderer<Me
      */
     private static final float FLUID_HALF = 1 / 4f;
 
-    public MengerSpongeRenderer(BlockEntityRendererProvider.Context context) {
+    public MengerSpongeDuperRenderer(BlockEntityRendererProvider.Context context) {
     }
 
     @Override
-    public boolean shouldRender(MengerSpongeBE be, Vec3 cameraPos) {
+    public boolean shouldRender(MengerSpongeDuperBE be, Vec3 cameraPos) {
         return RendererCFG.shouldRender(be, cameraPos);
     }
 
     @Override
-    public void render(MengerSpongeBE be, float partialTick, PoseStack pose, MultiBufferSource buffer,
+    public void render(MengerSpongeDuperBE be, float partialTick, PoseStack pose, MultiBufferSource buffer,
                        int packedLight, int packedOverlay) {
         Level level = be.getLevel();
         if (level == null) return;

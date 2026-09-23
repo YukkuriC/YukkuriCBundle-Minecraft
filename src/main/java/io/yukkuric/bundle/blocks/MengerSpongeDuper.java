@@ -1,6 +1,6 @@
 package io.yukkuric.bundle.blocks;
 
-import io.yukkuric.bundle.blocks.be.MengerSpongeBE;
+import io.yukkuric.bundle.blocks.be.MengerSpongeDuperBE;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
@@ -12,21 +12,21 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.FluidUtil;
 
-public class MengerSponge extends AbstractMengerSponge<MengerSpongeBE> {
-    public static final String ID = "menger_sponge";
+public class MengerSpongeDuper extends AbstractMengerSponge<MengerSpongeDuperBE> {
+    public static final String ID = "menger_sponge/duper";
 
-    public MengerSponge() {
+    public MengerSpongeDuper() {
         super();
     }
 
-    public MengerSpongeBE newBlockEntity(BlockPos pos, BlockState state) {
-        return new MengerSpongeBE(pos, state);
+    public MengerSpongeDuperBE newBlockEntity(BlockPos pos, BlockState state) {
+        return new MengerSpongeDuperBE(pos, state);
     }
 
     @Override
     public ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (level.isClientSide) return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-        if (!(level.getBlockEntity(pos) instanceof MengerSpongeBE be))
+        if (!(level.getBlockEntity(pos) instanceof MengerSpongeDuperBE be))
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         var fluidItem = stack.getCapability(Capabilities.FluidHandler.ITEM);
         if (fluidItem != null) {
@@ -45,7 +45,7 @@ public class MengerSponge extends AbstractMengerSponge<MengerSpongeBE> {
 
     @Override
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
-        if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof MengerSpongeBE be) {
+        if (!state.is(newState.getBlock()) && level.getBlockEntity(pos) instanceof MengerSpongeDuperBE be) {
             be.dropContents();
         }
         super.onRemove(state, level, pos, newState, isMoving);

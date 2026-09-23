@@ -21,7 +21,7 @@ import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import org.slf4j.Logger;
 
-import static io.yukkuric.bundle.blocks.YCBlocks.MENGER_SPONGE;
+import static io.yukkuric.bundle.blocks.YCBlocks.MENGER_SPONGE_DUPER;
 
 @Mod(YukkuriCBundleMod.MOD_ID)
 public class YukkuriCBundleMod {
@@ -33,7 +33,7 @@ public class YukkuriCBundleMod {
         return ResourceLocation.tryBuild(MOD_ID, path);
     }
 
-    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> MAIN_TAB = CREATIVE_MODE_TABS.register("example_tab", () -> CreativeModeTab.builder().title(Component.translatable("itemGroup.yukkuric_bundle")).withTabsBefore(CreativeModeTabs.COMBAT).icon(() -> MENGER_SPONGE.get().asItem().getDefaultInstance()).displayItems((parameters, output) -> {
+    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> MAIN_TAB = CREATIVE_MODE_TABS.register("example_tab", () -> CreativeModeTab.builder().title(Component.translatable("itemGroup.yukkuric_bundle")).withTabsBefore(CreativeModeTabs.COMBAT).icon(() -> MENGER_SPONGE_DUPER.get().asItem().getDefaultInstance()).displayItems((parameters, output) -> {
         for (var e : YCItems.ITEMS.getEntries()) {
             output.accept(e.get());
         }
@@ -56,7 +56,7 @@ public class YukkuriCBundleMod {
 
         @SubscribeEvent
         public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
-            event.registerBlockEntityRenderer(YCBlocks.BE_MENGER_SPONGE.get(), MengerSpongeRenderer::new);
+            event.registerBlockEntityRenderer(YCBlocks.BE_MENGER_SPONGE_DUPER.get(), MengerSpongeDuperRenderer::new);
             event.registerBlockEntityRenderer(YCBlocks.BE_MENGER_SPONGE_MINER.get(), MengerSpongeMinerRenderer::new);
             event.registerBlockEntityRenderer(YCBlocks.BE_MENGER_SPONGE_VOID.get(), MengerSpongeVoidRenderer::new);
         }

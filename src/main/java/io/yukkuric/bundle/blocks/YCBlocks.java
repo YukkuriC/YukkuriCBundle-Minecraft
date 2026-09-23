@@ -37,12 +37,12 @@ public class YCBlocks {
     }
 
     // blocks
-    public static final DeferredBlock<MengerSponge> MENGER_SPONGE = build(MengerSponge.ID, MengerSponge::new);
+    public static final DeferredBlock<MengerSpongeDuper> MENGER_SPONGE_DUPER = build(MengerSpongeDuper.ID, MengerSpongeDuper::new);
     public static final DeferredBlock<MengerSpongeVoid> MENGER_SPONGE_VOID = build(MengerSpongeVoid.ID, MengerSpongeVoid::new);
     public static final DeferredBlock<MengerSpongeMiner> MENGER_SPONGE_MINER = build(MengerSpongeMiner.ID, MengerSpongeMiner::new);
 
     // BE
-    public static final Supplier<BlockEntityType<MengerSpongeBE>> BE_MENGER_SPONGE = buildBE(MengerSponge.ID, MengerSpongeBE::new, YCBlocks.MENGER_SPONGE::get);
+    public static final Supplier<BlockEntityType<MengerSpongeDuperBE>> BE_MENGER_SPONGE_DUPER = buildBE(MengerSpongeDuper.ID, MengerSpongeDuperBE::new, YCBlocks.MENGER_SPONGE_DUPER::get);
     public static final Supplier<BlockEntityType<MengerSpongeVoidBE>> BE_MENGER_SPONGE_VOID = buildBE(MengerSpongeVoid.ID, MengerSpongeVoidBE::new, YCBlocks.MENGER_SPONGE_VOID::get);
     public static final Supplier<BlockEntityType<MengerSpongeMinerBE>> BE_MENGER_SPONGE_MINER = buildBE(MengerSpongeMiner.ID, MengerSpongeMinerBE::new, YCBlocks.MENGER_SPONGE_MINER::get);
 }

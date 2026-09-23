@@ -1,7 +1,7 @@
 {
   "itemGroup.yukkuric_bundle": "YukkuriC's Stuff",
-  "block.yukkuric_bundle.menger_sponge": "Menger Sponge",
-  "block.yukkuric_bundle.menger_sponge_void": "Menger Sponge (Void)",
-  "block.yukkuric_bundle.menger_sponge_miner": "Menger Sponge (Miner)",
+  "block.yukkuric_bundle.menger_sponge.duper": "Menger Sponge (Duper)",
+  "block.yukkuric_bundle.menger_sponge.void": "Menger Sponge (Void)",
+  "block.yukkuric_bundle.menger_sponge.miner": "Menger Sponge (Miner)",
   "item.yukkuric_bundle.example_item": "Example Item"
 }

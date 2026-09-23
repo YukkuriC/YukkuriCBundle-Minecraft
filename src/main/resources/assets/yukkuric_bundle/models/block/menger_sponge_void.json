@@ -1,7 +1,0 @@
-{
-	"parent": "yukkuric_bundle:block/menger_sponge",
-	"textures": {
-		"0": "yukkuric_bundle:block/menger_sponge_void",
-		"particle": "yukkuric_bundle:block/menger_sponge_void"
-	}
-}
