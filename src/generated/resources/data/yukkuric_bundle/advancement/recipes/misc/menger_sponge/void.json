@@ -1,0 +1,25 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "yukkuric_bundle:menger_sponge/void"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    },
+    "slept_in_bed": {
+      "trigger": "minecraft:slept_in_bed"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "slept_in_bed"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "yukkuric_bundle:menger_sponge/void"
+    ]
+  }
+}

@@ -97,7 +97,13 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 dependencies {
     implementation "curse.maven:jade-324717:8591319"
-    implementation "curse.maven:jei-238222:8870333"
+    // JEI 的客户端构造在 datagen 下会崩溃（Minecraft.getInstance() 为 null，官方未修复）。
+    // 运行 datagen 时用 `-PnoJei` 将其排除；正常游戏 run 不受影响。
+    // 此外，默认对 IDEA/Gradle 的 runData 任务排除 JEI，无需每次手动加 `-PnoJei`。
+    def runningData = gradle.startParameter.taskNames.any { it.contains("runData") }
+    if (!providers.gradleProperty("noJei").present && !runningData) {
+        implementation "curse.maven:jei-238222:8870333"
+    }
     implementation "curse.maven:create-328085:7963363"
 }
 

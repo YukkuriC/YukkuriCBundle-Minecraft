@@ -1,4 +1,5 @@
 # User-specific stuff
+.cache/
 .idea/
 
 *.iml
