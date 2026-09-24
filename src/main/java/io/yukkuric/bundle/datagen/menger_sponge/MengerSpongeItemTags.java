@@ -20,7 +20,7 @@ public class MengerSpongeItemTags extends ItemTagsProvider {
     @Override
     protected void addTags(HolderLookup.Provider provider) {
         var appender = tag(MengerSpongeConsts.ITEM_TAG);
-        MengerSpongeConsts.SPONGES.forEach(sponge -> addItemTag(appender, sponge.get()));
+        MengerSpongeConsts.getAllMengerSponges().forEach(sponge -> addItemTag(appender, sponge.get()));
     }
 
     /** 将方块对应物品加入 item tag {@code yukkuric_bundle:menger_sponges} */

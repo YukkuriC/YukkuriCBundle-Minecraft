@@ -1,0 +1,7 @@
+{
+  "parent": "yukkuric_bundle:block/menger_sponge/base",
+  "textures": {
+    "0": "yukkuric_bundle:block/menger_sponge/duper",
+    "particle": "yukkuric_bundle:block/menger_sponge/duper"
+  }
+}

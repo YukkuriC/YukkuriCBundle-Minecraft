@@ -14,7 +14,7 @@ public class MengerSpongeBlockStates extends BlockStateProvider {
 
     @Override
     protected void registerStatesAndModels() {
-        MengerSpongeConsts.SPONGES.forEach(sponge -> addBlockState(sponge.get()));
+        MengerSpongeConsts.getAllMengerSponges().forEach(sponge -> addBlockState(sponge.get()));
     }
 
     /** 生成 blockstate：单模型引用 {@code block/<注册路径>} */

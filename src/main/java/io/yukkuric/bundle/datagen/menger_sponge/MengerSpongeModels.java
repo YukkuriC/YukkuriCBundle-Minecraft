@@ -15,7 +15,7 @@ public class MengerSpongeModels extends ItemModelProvider {
     @Override
     protected void registerModels() {
         // block model 需先于 item model 生成，item model 以 block model 为父模型
-        for (var sponge : MengerSpongeConsts.SPONGES) {
+        for (var sponge : MengerSpongeConsts.getAllMengerSponges()) {
             addBlockModel(sponge.get());
             addItemModel(sponge.get());
         }
@@ -24,7 +24,6 @@ public class MengerSpongeModels extends ItemModelProvider {
     /** 生成 block model：以基础模型为父，仅替换贴图；基础方块自身不生成 */
     private void addBlockModel(Block block) {
         var id = BuiltInRegistries.BLOCK.getKey(block);
-        if (id.getPath().equals(MengerSpongeConsts.BASE_BLOCK_ID)) return;
         var texture = modLoc("block/" + id.getPath());
         withExistingParent("block/" + id.getPath(), modLoc("block/" + MengerSpongeConsts.BASE_BLOCK_ID))
                 .texture("0", texture)

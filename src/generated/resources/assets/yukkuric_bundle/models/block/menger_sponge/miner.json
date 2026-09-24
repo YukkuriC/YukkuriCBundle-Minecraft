@@ -1,5 +1,5 @@
 {
-  "parent": "yukkuric_bundle:block/menger_sponge/duper",
+  "parent": "yukkuric_bundle:block/menger_sponge/base",
   "textures": {
     "0": "yukkuric_bundle:block/menger_sponge/miner",
     "particle": "yukkuric_bundle:block/menger_sponge/miner"

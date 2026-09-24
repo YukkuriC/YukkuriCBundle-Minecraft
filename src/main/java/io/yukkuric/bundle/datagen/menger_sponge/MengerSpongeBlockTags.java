@@ -18,7 +18,7 @@ public class MengerSpongeBlockTags extends BlockTagsProvider {
     @Override
     protected void addTags(HolderLookup.Provider provider) {
         var appender = tag(MengerSpongeConsts.BLOCK_TAG);
-        MengerSpongeConsts.SPONGES.forEach(sponge -> addBlockTag(appender, sponge.get()));
+        MengerSpongeConsts.getAllMengerSponges().forEach(sponge -> addBlockTag(appender, sponge.get()));
     }
 
     /** 将方块加入 block tag {@code yukkuric_bundle:menger_sponges} */
