@@ -1,7 +1,7 @@
 package io.yukkuric.bundle.datagen.menger_sponge;
 
 import io.yukkuric.bundle.YukkuriCBundleMod;
-import io.yukkuric.bundle.tags.YCTags;
+import io.yukkuric.bundle.tag.YCTags;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.data.PackOutput;
 import net.minecraft.data.tags.IntrinsicHolderTagsProvider;

@@ -1,4 +1,4 @@
-package io.yukkuric.bundle.client.blocks;
+package io.yukkuric.bundle.client.block;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;

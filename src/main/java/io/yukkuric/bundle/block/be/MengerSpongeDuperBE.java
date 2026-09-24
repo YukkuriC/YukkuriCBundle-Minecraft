@@ -1,6 +1,6 @@
-package io.yukkuric.bundle.blocks.be;
+package io.yukkuric.bundle.block.be;
 
-import io.yukkuric.bundle.blocks.YCBlocks;
+import io.yukkuric.bundle.block.YCBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -16,7 +16,7 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.items.IItemHandler;
 
-import static io.yukkuric.bundle.blocks.YCBlocks.BE_MENGER_SPONGE_DUPER;
+import static io.yukkuric.bundle.block.YCBlocks.BE_MENGER_SPONGE_DUPER;
 
 @EventBusSubscriber
 public class MengerSpongeDuperBE extends AbstractMengerSpongeDataBE {

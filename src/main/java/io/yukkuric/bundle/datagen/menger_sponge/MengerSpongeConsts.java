@@ -1,6 +1,6 @@
 package io.yukkuric.bundle.datagen.menger_sponge;
 
-import io.yukkuric.bundle.blocks.YCBlocks;
+import io.yukkuric.bundle.block.YCBlocks;
 import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.registries.DeferredHolder;
 

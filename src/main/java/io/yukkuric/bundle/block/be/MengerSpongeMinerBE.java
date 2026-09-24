@@ -1,4 +1,4 @@
-package io.yukkuric.bundle.blocks.be;
+package io.yukkuric.bundle.block.be;
 
 import com.google.common.collect.ImmutableList;
 import net.minecraft.core.BlockPos;
@@ -20,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static io.yukkuric.bundle.YukkuriCBundleMod.modLoc;
-import static io.yukkuric.bundle.blocks.YCBlocks.BE_MENGER_SPONGE_MINER;
+import static io.yukkuric.bundle.block.YCBlocks.BE_MENGER_SPONGE_MINER;
 
 @EventBusSubscriber
 public class MengerSpongeMinerBE extends AbstractMengerSpongeDataBE {

@@ -1,9 +1,9 @@
 package io.yukkuric.bundle;
 
 import com.mojang.logging.LogUtils;
-import io.yukkuric.bundle.blocks.YCBlocks;
-import io.yukkuric.bundle.client.blocks.*;
-import io.yukkuric.bundle.items.YCItems;
+import io.yukkuric.bundle.block.YCBlocks;
+import io.yukkuric.bundle.client.block.*;
+import io.yukkuric.bundle.item.YCItems;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -21,7 +21,7 @@ import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import org.slf4j.Logger;
 
-import static io.yukkuric.bundle.blocks.YCBlocks.MENGER_SPONGE_DUPER;
+import static io.yukkuric.bundle.block.YCBlocks.MENGER_SPONGE_DUPER;
 
 @Mod(YukkuriCBundleMod.MOD_ID)
 public class YukkuriCBundleMod {

@@ -1,4 +1,4 @@
-package io.yukkuric.bundle.blocks.be;
+package io.yukkuric.bundle.block.be;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;

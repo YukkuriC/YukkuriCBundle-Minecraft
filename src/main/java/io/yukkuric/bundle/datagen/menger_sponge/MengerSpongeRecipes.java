@@ -1,7 +1,7 @@
 package io.yukkuric.bundle.datagen.menger_sponge;
 
-import io.yukkuric.bundle.blocks.YCBlocks;
-import io.yukkuric.bundle.tags.YCTags;
+import io.yukkuric.bundle.block.YCBlocks;
+import io.yukkuric.bundle.tag.YCTags;
 import net.minecraft.advancements.critereon.PlayerTrigger;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;

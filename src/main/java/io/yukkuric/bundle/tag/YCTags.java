@@ -1,4 +1,4 @@
-package io.yukkuric.bundle.tags;
+package io.yukkuric.bundle.tag;
 
 import io.yukkuric.bundle.YukkuriCBundleMod;
 import net.minecraft.core.registries.Registries;

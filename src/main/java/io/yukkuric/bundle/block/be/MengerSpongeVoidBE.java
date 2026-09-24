@@ -1,6 +1,6 @@
-package io.yukkuric.bundle.blocks.be;
+package io.yukkuric.bundle.block.be;
 
-import io.yukkuric.bundle.blocks.YCBlocks;
+import io.yukkuric.bundle.block.YCBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -14,7 +14,7 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.items.IItemHandler;
 
-import static io.yukkuric.bundle.blocks.YCBlocks.BE_MENGER_SPONGE_VOID;
+import static io.yukkuric.bundle.block.YCBlocks.BE_MENGER_SPONGE_VOID;
 
 @EventBusSubscriber
 public class MengerSpongeVoidBE extends BlockEntity {

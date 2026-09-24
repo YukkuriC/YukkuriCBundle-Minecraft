@@ -1,4 +1,4 @@
-package io.yukkuric.bundle.items;
+package io.yukkuric.bundle.item;
 
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.Item;

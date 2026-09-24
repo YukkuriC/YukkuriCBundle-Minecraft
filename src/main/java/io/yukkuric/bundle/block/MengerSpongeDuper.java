@@ -1,6 +1,6 @@
-package io.yukkuric.bundle.blocks;
+package io.yukkuric.bundle.block;
 
-import io.yukkuric.bundle.blocks.be.MengerSpongeDuperBE;
+import io.yukkuric.bundle.block.be.MengerSpongeDuperBE;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;

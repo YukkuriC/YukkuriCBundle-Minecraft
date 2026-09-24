@@ -1,7 +1,7 @@
-package io.yukkuric.bundle.client.blocks;
+package io.yukkuric.bundle.client.block;
 
 import com.mojang.blaze3d.vertex.*;
-import io.yukkuric.bundle.blocks.be.MengerSpongeVoidBE;
+import io.yukkuric.bundle.block.be.MengerSpongeVoidBE;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;

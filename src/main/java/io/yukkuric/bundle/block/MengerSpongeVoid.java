@@ -1,6 +1,6 @@
-package io.yukkuric.bundle.blocks;
+package io.yukkuric.bundle.block;
 
-import io.yukkuric.bundle.blocks.be.MengerSpongeVoidBE;
+import io.yukkuric.bundle.block.be.MengerSpongeVoidBE;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 

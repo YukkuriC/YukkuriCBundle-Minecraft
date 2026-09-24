@@ -1,7 +1,7 @@
-package io.yukkuric.bundle.blocks;
+package io.yukkuric.bundle.block;
 
 import com.google.common.collect.ImmutableSet;
-import io.yukkuric.bundle.blocks.be.*;
+import io.yukkuric.bundle.block.be.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
