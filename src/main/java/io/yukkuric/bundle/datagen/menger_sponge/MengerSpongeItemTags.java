@@ -1,6 +1,7 @@
 package io.yukkuric.bundle.datagen.menger_sponge;
 
 import io.yukkuric.bundle.YukkuriCBundleMod;
+import io.yukkuric.bundle.tags.YCTags;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.data.PackOutput;
 import net.minecraft.data.tags.IntrinsicHolderTagsProvider;
@@ -19,7 +20,7 @@ public class MengerSpongeItemTags extends ItemTagsProvider {
 
     @Override
     protected void addTags(HolderLookup.Provider provider) {
-        var appender = tag(MengerSpongeConsts.ITEM_TAG);
+        var appender = tag(YCTags.Items.MengerSponges);
         MengerSpongeConsts.getAllMengerSponges().forEach(sponge -> addItemTag(appender, sponge.get()));
     }
 

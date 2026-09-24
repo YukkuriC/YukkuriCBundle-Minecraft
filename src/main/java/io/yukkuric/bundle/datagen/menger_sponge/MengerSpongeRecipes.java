@@ -1,6 +1,7 @@
 package io.yukkuric.bundle.datagen.menger_sponge;
 
 import io.yukkuric.bundle.blocks.YCBlocks;
+import io.yukkuric.bundle.tags.YCTags;
 import net.minecraft.advancements.critereon.PlayerTrigger;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -23,7 +24,7 @@ public class MengerSpongeRecipes extends RecipeProvider {
      */
     private void addRecipe(RecipeOutput out, Block block, ItemLike... extras) {
         ShapelessRecipeBuilder.shapeless(RecipeCategory.MISC, block)
-                .requires(MengerSpongeConsts.ITEM_TAG)
+                .requires(YCTags.Items.MengerSponges)
                 .requires(Ingredient.of(extras))
                 .unlockedBy("slept_in_bed", PlayerTrigger.TriggerInstance.sleptInBed())
                 .save(out, BuiltInRegistries.BLOCK.getKey(block));
