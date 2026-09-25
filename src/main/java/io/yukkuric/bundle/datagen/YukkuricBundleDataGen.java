@@ -1,6 +1,7 @@
 package io.yukkuric.bundle.datagen;
 
 import io.yukkuric.bundle.YukkuriCBundleMod;
+import io.yukkuric.bundle.datagen.damage.YCDamageTypeTags;
 import io.yukkuric.bundle.datagen.menger_sponge.*;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -23,5 +24,7 @@ public class YukkuricBundleDataGen {
         var blockTags = new MengerSpongeBlockTags(output, lookups, efh);
         gen.addProvider(event.includeServer(), blockTags);
         gen.addProvider(event.includeServer(), new MengerSpongeItemTags(output, lookups, blockTags.contentsGetter(), efh));
+
+        gen.addProvider(event.includeServer(), new YCDamageTypeTags(output, lookups, efh));
     }
 }

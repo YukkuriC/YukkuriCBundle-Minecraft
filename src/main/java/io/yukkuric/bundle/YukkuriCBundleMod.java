@@ -3,6 +3,9 @@ package io.yukkuric.bundle;
 import com.mojang.logging.LogUtils;
 import io.yukkuric.bundle.block.YCBlocks;
 import io.yukkuric.bundle.client.block.*;
+import io.yukkuric.bundle.client.entity.YCEntityRenderers;
+import io.yukkuric.bundle.damage.YCDamageTypes;
+import io.yukkuric.bundle.entity.YCEntityTypes;
 import io.yukkuric.bundle.item.YCItems;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -45,6 +48,8 @@ public class YukkuriCBundleMod {
     public YukkuriCBundleMod(IEventBus modEventBus, ModContainer modContainer) {
         YCBlocks.register(modEventBus);
         YCItems.register(modEventBus);
+        YCEntityTypes.TYPES.register(modEventBus);
+        YCDamageTypes.DAMAGE_TYPES.register(modEventBus);
         CREATIVE_MODE_TABS.register(modEventBus);
     }
 
@@ -59,6 +64,7 @@ public class YukkuriCBundleMod {
             event.registerBlockEntityRenderer(YCBlocks.BE_MENGER_SPONGE_DUPER.get(), MengerSpongeDuperRenderer::new);
             event.registerBlockEntityRenderer(YCBlocks.BE_MENGER_SPONGE_MINER.get(), MengerSpongeMinerRenderer::new);
             event.registerBlockEntityRenderer(YCBlocks.BE_MENGER_SPONGE_VOID.get(), MengerSpongeVoidRenderer::new);
+            YCEntityRenderers.register(event);
         }
     }
 }
