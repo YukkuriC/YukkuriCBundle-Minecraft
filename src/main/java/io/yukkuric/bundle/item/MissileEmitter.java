@@ -53,7 +53,7 @@ public class MissileEmitter extends Item {
                 }
                 List<Entity> pool = new ArrayList<>(targets);
                 for (int i = 0; i < RANDOM_TARGET_COUNT; i++) {
-                    fireAtEntity(level, spawnPos, pool.remove(random.nextInt(pool.size())), player);
+                    fireAtEntity(level, spawnPos, pool.get(random.nextInt(pool.size())), player);
                 }
                 int pointCount = MISSILE_COUNT - CLOSE_TARGET_COUNT - RANDOM_TARGET_COUNT;
                 for (int i = 0; i < pointCount; i++) {
@@ -67,7 +67,9 @@ public class MissileEmitter extends Item {
     /** 打向指定目标实体发射一颗魔法弹 */
     private void fireAtEntity(Level level, Vec3 spawnPos, Entity target, @Nullable Entity owner) {
         Vec3 velocity = randomDirection(level.random).scale(level.random.nextDouble() * 2);
-        level.addFreshEntity(new MagicMissile(level, spawnPos, velocity, target, MISSILE_DAMAGE, owner));
+        var missile = new MagicMissile(level, spawnPos, velocity, target, MISSILE_DAMAGE, owner);
+        missile.setMaxSpeed(3);
+        level.addFreshEntity(missile);
     }
 
     /** 打向 anchor 周围 AABB_RADIUS 格立方体内随机点发射一颗魔法弹 */

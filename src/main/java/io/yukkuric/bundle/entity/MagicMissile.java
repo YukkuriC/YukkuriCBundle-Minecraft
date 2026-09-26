@@ -22,8 +22,7 @@ import net.minecraft.world.phys.*;
 import org.joml.Vector3f;
 
 import javax.annotation.Nullable;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 public class MagicMissile extends Projectile {
     public static final String ID = "magic_missile";
@@ -31,12 +30,12 @@ public class MagicMissile extends Projectile {
     /** 锁定目标实体时的颜色 */
     public static final Vec3 COLOR_LOCKED = Vec3.fromRGB24(0x87CEEB);
     /** 未锁定目标实体时的颜色 */
-    public static final Vec3 COLOR_FREE = Vec3.fromRGB24(0xFFFFFF);
+    public static final Vec3 COLOR_FREE = Vec3.fromRGB24(0xFF77EE);
 
     private static final float DEF_TRACK_RATE = 0.05F;
     private static final float TRACK_RATE_INC = 0.01F;
     private static final float TRACK_RATE_MAX = 0.5F;
-    private static final double DEF_MAX_SPEED = 3;
+    private static final double DEF_MAX_SPEED = 2;
 
     /** 距目标点不足该距离（格）首次触发计时 */
     private static final double FUSE_RANGE = 1.0;
@@ -67,6 +66,8 @@ public class MagicMissile extends Projectile {
     private int fusedTicks;
     /** 一次性触发标记（服务端 fuse 计时 / 客户端 explode 粒子各用一次） */
     private boolean markFlag;
+
+    public final List<Vec3> lastPositions = new ArrayList<>();
 
     protected MagicMissile(EntityType<MagicMissile> type, Level level) {
         super(type, level);
@@ -326,32 +327,32 @@ public class MagicMissile extends Projectile {
         return !Objects.equals(owner, target);
     }
 
-    private void setStage(int s) {
+    public void setStage(int s) {
         getEntityData().set(DATA_STAGE, s);
     }
 
-    private int getStage() {
+    public int getStage() {
         return getEntityData().get(DATA_STAGE);
     }
 
-    private void setTargetPos(Vec3 pos) {
+    public void setTargetPos(Vec3 pos) {
         targetPos = pos;
         getEntityData().set(DATA_TARGET_POS, new Vector3f((float) pos.x, (float) pos.y, (float) pos.z));
     }
 
-    private Vec3 getTargetPos() {
+    public Vec3 getTargetPos() {
         Vector3f pos = getEntityData().get(DATA_TARGET_POS);
         return new Vec3(pos.x, pos.y, pos.z);
     }
 
-    private void setTargetEntity(@Nullable Entity target) {
+    public void setTargetEntity(@Nullable Entity target) {
         targetEntity = target;
         targetUuid = target == null ? null : target.getUUID();
         getEntityData().set(DATA_TARGET_ENTITY_ID, target == null ? 0 : target.getId());
     }
 
     @Nullable
-    private Entity resolveTargetByUuid() {
+    public Entity resolveTargetByUuid() {
         if (targetUuid != null && level instanceof ServerLevel serverLevel) {
             return serverLevel.getEntity(targetUuid);
         }
@@ -359,34 +360,34 @@ public class MagicMissile extends Projectile {
     }
 
     @Nullable
-    private Entity resolveTargetById() {
+    public Entity resolveTargetById() {
         int id = getEntityData().get(DATA_TARGET_ENTITY_ID);
         return id == 0 ? null : level.getEntity(id);
     }
 
-    private void setDamage(float damage) {
+    public void setDamage(float damage) {
         getEntityData().set(DATA_DAMAGE, damage);
     }
 
-    private float getDamage() {
+    public float getDamage() {
         return getEntityData().get(DATA_DAMAGE);
     }
 
-    private void setTrackRate(float rate) {
+    public void setTrackRate(float rate) {
         trackRate = rate;
         getEntityData().set(DATA_TRACK_RATE, rate);
     }
 
-    private void setMaxSpeed(double speed) {
+    public void setMaxSpeed(double speed) {
         maxSpeed = speed;
         getEntityData().set(DATA_MAX_SPEED, (float) speed);
     }
 
-    private float getTrackRate() {
+    public float getTrackRate() {
         return getEntityData().get(DATA_TRACK_RATE);
     }
 
-    private double getMaxSpeed() {
+    public double getMaxSpeed() {
         return getEntityData().get(DATA_MAX_SPEED);
     }
 }
