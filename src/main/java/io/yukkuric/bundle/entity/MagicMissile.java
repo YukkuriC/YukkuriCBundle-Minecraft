@@ -297,7 +297,7 @@ public class MagicMissile extends Projectile {
             spawnParticle(ParticleTypes.END_ROD, box, null, color);
         }
         spawnParticle(ParticleTypes.EXPLOSION, getBoundingBox(), null, null);
-        spawnParticle(ParticleTypes.SONIC_BOOM, getBoundingBox(), null, null);
+        // spawnParticle(ParticleTypes.SONIC_BOOM, getBoundingBox(), null, null);
     }
 
     /** 是否已进入 explode 阶段（供渲染器判断不再渲染模型） */
