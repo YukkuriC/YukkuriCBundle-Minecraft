@@ -53,11 +53,13 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
         }
 
         RandomSource random = entity.level().random;
-        Vec3 color = entity.isLocked() ? MagicMissile.COLOR_LOCKED : MagicMissile.COLOR_FREE;
 
-        // 先画不透明内层，再画半透明外层，使内层透过外层可见
+        // 先画不透明内层，再画半透明外层，使内层透过外层可见；初始飞出阶段只画内层
         renderInner(entity, partialTick, pose, buffer, random);
-        renderOuter(color, pose, buffer, random);
+        if (!entity.isLaunching()) {
+            Vec3 color = entity.isLocked() ? MagicMissile.COLOR_LOCKED : MagicMissile.COLOR_FREE;
+            renderOuter(color, pose, buffer, random);
+        }
 
         super.render(entity, entityYaw, partialTick, pose, buffer, packedLight);
     }

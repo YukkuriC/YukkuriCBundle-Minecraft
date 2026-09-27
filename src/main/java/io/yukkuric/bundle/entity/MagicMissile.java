@@ -43,8 +43,12 @@ public class MagicMissile extends Projectile {
     private static final float TRACK_RATE_INC = 0.01F;
     private static final float TRACK_RATE_MAX = 0.5F;
     private static final double DEF_MAX_SPEED = 2;
+    /** 初始飞出阶段的每 tick 速度衰减系数 */
+    private static final double FLY_DECAY = 0.99;
+    /** 初始飞出阶段持续的 tick 数，之后进入追踪阶段 */
+    private static final int FLY_TICKS = 20;
     private static final float MAX_TRAIL_DIST = 20;
-    private static final float TRAIL_STEP = 0.05f;
+    private static final float TRAIL_STEP = 0.1f;
 
     /** 距目标点不足该距离（格）首次触发计时 */
     private static final double FUSE_RANGE = 1.0;
@@ -109,7 +113,7 @@ public class MagicMissile extends Projectile {
         builder.define(DATA_DAMAGE, 0.0F);
         builder.define(DATA_TRACK_RATE, DEF_TRACK_RATE);
         builder.define(DATA_MAX_SPEED, (float) DEF_MAX_SPEED);
-        builder.define(DATA_STAGE, 0);
+        builder.define(DATA_STAGE, -1);
     }
 
     @Override
@@ -152,6 +156,30 @@ public class MagicMissile extends Projectile {
         var myPos = getEyePosition();
 
         switch (stage) {
+            case -1 -> {
+                // 向初始速度方向飞出并逐 tick 衰减，撞到方块表面时按法线镜面反弹，撞到可碰撞实体则提前爆炸
+                Vec3 vel = getDeltaMovement().scale(FLY_DECAY);
+                Vec3 start = myPos.subtract(vel.scale(0.5));
+                Vec3 end = myPos.add(vel.scale(0.5));
+                var entityHit = ProjectileUtil.getEntityHitResult(level, this, start, end, getBoundingBox().expandTowards(vel).inflate(1.0), this::canHitEntity);
+                if (entityHit != null) {
+                    var target = entityHit.getLocation();
+                    setPos(target.x, target.y - getEyeHeight(), target.z);
+                    explode();
+                    return;
+                }
+                var blockHit = level.clip(new ClipContext(start, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+                if (blockHit.getType() != HitResult.Type.MISS) {
+                    vel = MathUtils.reflect(vel, Vec3.atLowerCornerOf(blockHit.getDirection().getNormal()));
+                    var target = blockHit.getLocation();
+                    setPos(target.x, target.y - getEyeHeight(), target.z);
+                }
+                setDeltaMovement(vel);
+                move(MoverType.SELF, vel);
+                if (!level.isClientSide && tickCount >= FLY_TICKS) {
+                    setStage(0);
+                }
+            }
             case 0 -> {
                 if (level.isClientSide) {
                     // 每 tick 从同步数据刷新参数并喷射粒子
@@ -328,6 +356,11 @@ public class MagicMissile extends Projectile {
     /** 是否已进入 explode 阶段（供渲染器判断不再渲染模型） */
     public boolean isExploding() {
         return getStage() == 1;
+    }
+
+    /** 是否处于初始飞出阶段（供渲染器判断只绘制内层） */
+    public boolean isLaunching() {
+        return getStage() == -1;
     }
 
     /** 是否锁定目标实体（客户端依据同步的实体 id 判断） */

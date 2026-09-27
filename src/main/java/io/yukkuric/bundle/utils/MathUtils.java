@@ -12,4 +12,9 @@ public class MathUtils {
                 .add(p1.scale(-2 * t3 + 3 * t2))
                 .add(m1.scale(t3 - t2));
     }
+
+    /** 速度按法线做镜面反射：v - 2(v·n)n，normal 为单位向量 */
+    public static Vec3 reflect(Vec3 vel, Vec3 normal) {
+        return vel.subtract(normal.scale(2 * vel.dot(normal)));
+    }
 }
