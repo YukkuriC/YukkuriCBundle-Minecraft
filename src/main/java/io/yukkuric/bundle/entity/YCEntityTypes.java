@@ -14,7 +14,7 @@ public class YCEntityTypes {
             EntityType.Builder.<MagicMissile>of(MagicMissile::new, MobCategory.MISC)
                     .sized(0.2F, 0.2F)
                     .eyeHeight(0.1F)
-                    .clientTrackingRange(4)
+                    .clientTrackingRange(10)
                     .updateInterval(20));
 
     private static <B extends Entity> Supplier<EntityType<B>> build(String name, EntityType.Builder<B> builder) {

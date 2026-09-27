@@ -1,6 +1,9 @@
 package io.yukkuric.bundle.entity;
 
+import io.yukkuric.bundle.client.particle.FadeLightParticle;
 import io.yukkuric.bundle.damage.YCDamageTypes;
+import io.yukkuric.bundle.particle.FadeLightParticleOptions;
+import io.yukkuric.bundle.utils.MathUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleEngine;
@@ -22,7 +25,8 @@ import net.minecraft.world.phys.*;
 import org.joml.Vector3f;
 
 import javax.annotation.Nullable;
-import java.util.*;
+import java.util.Objects;
+import java.util.UUID;
 
 public class MagicMissile extends Projectile {
     public static final String ID = "magic_missile";
@@ -32,10 +36,15 @@ public class MagicMissile extends Projectile {
     /** 未锁定目标实体时的颜色 */
     public static final Vec3 COLOR_FREE = Vec3.fromRGB24(0xFF77EE);
 
+    public static final FadeLightParticleOptions PARTICLE_DEFAULT = new FadeLightParticleOptions(0.3F, 30);
+    public static final FadeLightParticleOptions PARTICLE_EXPLODE = new FadeLightParticleOptions(0.5F, 40);
+
     private static final float DEF_TRACK_RATE = 0.05F;
     private static final float TRACK_RATE_INC = 0.01F;
     private static final float TRACK_RATE_MAX = 0.5F;
     private static final double DEF_MAX_SPEED = 2;
+    private static final float MAX_TRAIL_DIST = 20;
+    private static final float TRAIL_STEP = 0.05f;
 
     /** 距目标点不足该距离（格）首次触发计时 */
     private static final double FUSE_RANGE = 1.0;
@@ -66,8 +75,6 @@ public class MagicMissile extends Projectile {
     private int fusedTicks;
     /** 一次性触发标记（服务端 fuse 计时 / 客户端 explode 粒子各用一次） */
     private boolean markFlag;
-
-    public final List<Vec3> lastPositions = new ArrayList<>();
 
     protected MagicMissile(EntityType<MagicMissile> type, Level level) {
         super(type, level);
@@ -135,6 +142,9 @@ public class MagicMissile extends Projectile {
         setStage(tag.getInt("Stage"));
     }
 
+    private @Nullable Vec3 lastPos = null;
+    private @Nullable Vec3 lastVel = null;
+
     @Override
     public void tick() {
         super.tick();
@@ -149,12 +159,22 @@ public class MagicMissile extends Projectile {
                     trackRate = getTrackRate();
                     maxSpeed = getMaxSpeed();
 
-                    Vec3 velDir = getDeltaMovement();
-                    var centerBox = AABB.ofSize(myPos, 0.1, 0.1, 0.1);
+                    var newPos = getEyePosition();
+                    var newVel = getDeltaMovement();
                     Vec3 sparkColor = isLocked() ? COLOR_LOCKED : COLOR_FREE;
-                    for (int i = 0; i < 5; i++) {
-                        spawnParticle(ParticleTypes.ELECTRIC_SPARK, centerBox, velDir, sparkColor);
+                    if (lastPos != null && newPos.distanceToSqr(lastPos) < MAX_TRAIL_DIST) {
+                        var totalDist = newPos.distanceTo(lastPos);
+                        if (totalDist < MAX_TRAIL_DIST || totalDist < maxSpeed) {
+                            // 起点切线取上段速度方向、终点切线取当前速度方向
+                            var steps = (int) Math.ceil(totalDist / TRAIL_STEP);
+                            for (var i = 0; i < steps; i++) {
+                                var midPos = MathUtils.hermite(lastPos, lastVel, newPos, newVel, (float) i / steps);
+                                spawnParticle(PARTICLE_DEFAULT, midPos, sparkColor);
+                            }
+                        }
                     }
+                    lastPos = newPos;
+                    lastVel = newVel;
                 } else {
                     if (targetEntity == null) {
                         targetEntity = resolveTargetByUuid();
@@ -249,14 +269,19 @@ public class MagicMissile extends Projectile {
 
     private ParticleEngine _cachedEngine = null;
 
-    private Particle spawnParticle(ParticleOptions particle, AABB box, @Nullable Vec3 randDir, @Nullable Vec3 overrideColor) {
-        var particleEngine = _cachedEngine == null ? (_cachedEngine = Minecraft.getInstance().particleEngine) : _cachedEngine;
+    private Particle spawnParticle(ParticleOptions particle, AABB box, @Nullable Vec3 overrideColor) {
         var random = level.random;
         double x = box.minX + box.getXsize() * random.nextDouble();
         double y = box.minY + box.getYsize() * random.nextDouble();
         double z = box.minZ + box.getZsize() * random.nextDouble();
-        Vec3 offset = randDir == null ? Vec3.ZERO : randDir.scale(random.nextDouble() - 0.5);
-        var spawned = particleEngine.createParticle(particle, x + offset.x, y + offset.y, z + offset.z, 0.0, 0.0, 0.0);
+        return spawnParticle(particle, new Vec3(x, y, z), overrideColor);
+    }
+    private Particle spawnParticle(ParticleOptions particle, Vec3 center, @Nullable Vec3 overrideColor) {
+        var particleEngine = _cachedEngine == null ? (_cachedEngine = Minecraft.getInstance().particleEngine) : _cachedEngine;
+        double x = center.x;
+        double y = center.y;
+        double z = center.z;
+        var spawned = particleEngine.createParticle(particle, x, y, z, 0.0, 0.0, 0.0);
         if (overrideColor != null) {
             spawned.setColor((float) overrideColor.x, (float) overrideColor.y, (float) overrideColor.z);
         }
@@ -294,10 +319,10 @@ public class MagicMissile extends Projectile {
         AABB box = explodeBox();
         Vec3 color = isLocked() ? COLOR_LOCKED : COLOR_FREE;
         for (int i = 0; i < 30; i++) {
-            spawnParticle(ParticleTypes.END_ROD, box, null, color);
+            var particle = (FadeLightParticle) spawnParticle(PARTICLE_EXPLODE, box, color);
+            particle.setSize(0.2f + (float) Math.random() * 0.8f);
         }
-        spawnParticle(ParticleTypes.EXPLOSION, getBoundingBox(), null, null);
-        // spawnParticle(ParticleTypes.SONIC_BOOM, getBoundingBox(), null, null);
+        spawnParticle(ParticleTypes.EXPLOSION, getEyePosition(), null);
     }
 
     /** 是否已进入 explode 阶段（供渲染器判断不再渲染模型） */
