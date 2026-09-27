@@ -25,6 +25,8 @@ import net.minecraft.world.phys.*;
 import org.joml.Vector3f;
 
 import javax.annotation.Nullable;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -36,7 +38,11 @@ public class MagicMissile extends Projectile {
     /** 未锁定目标实体时的颜色 */
     public static final Vec3 COLOR_FREE = Vec3.fromRGB24(0xFF77EE);
 
-    public static final FadeLightParticleOptions PARTICLE_DEFAULT = new FadeLightParticleOptions(0.3F, 30);
+    /** 尾迹珠的初始半宽 */
+    public static final float TRAIL_SIZE = 0.3F;
+    /** 尾迹珠寿命（tick），到期后由渲染器淡出 */
+    public static final int TRAIL_LIFETIME = 30;
+
     public static final FadeLightParticleOptions PARTICLE_EXPLODE = new FadeLightParticleOptions(0.5F, 40);
 
     private static final float DEF_TRACK_RATE = 0.05F;
@@ -54,8 +60,8 @@ public class MagicMissile extends Projectile {
     private static final double FUSE_RANGE = 1.0;
     /** 计时累计超过该 tick 数后引爆 */
     private static final int FUSE_ON = 10;
-    /** stage=1 后累计该 tick 数，随后 discard */
-    private static final int EXPLODE_TICKS = 20;
+    /** stage=1 后累计该 tick 数，随后 discard；留出余量覆盖 stage 同步延迟，避免尾迹被实体移除时硬切 */
+    private static final int EXPLODE_TICKS = TRAIL_LIFETIME + 2;
     /** 爆炸框选 AABB 边长（格） */
     private static final double EXPLODE_BOX = 2.0;
 
@@ -84,6 +90,8 @@ public class MagicMissile extends Projectile {
         super(type, level);
         this.level = level;
         noPhysics = true;
+        // 尾迹铺在身后，不参与视锥剔除，避免本体出画面时整条尾迹瞬间消失
+        noCulling = true;
     }
 
     private MagicMissile(Level level, Vec3 startPos, Vec3 startVelocity, Vec3 targetPos, float damage, @Nullable Entity targetEntity, @Nullable Entity owner) {
@@ -149,6 +157,16 @@ public class MagicMissile extends Projectile {
     private @Nullable Vec3 lastPos = null;
     private @Nullable Vec3 lastVel = null;
 
+    /** 尾迹珠：世界坐标 + 生成时的 tick 计数，由渲染器按 age 收缩绘制 */
+    public record TrailBead(Vec3 pos, long bornAt) {}
+
+    /** 客户端尾迹采样，仅 stage 0 追加，进入爆炸后停止追加以便自然淡出 */
+    private final Deque<TrailBead> trail = new ArrayDeque<>();
+
+    public Deque<TrailBead> getTrail() {
+        return trail;
+    }
+
     @Override
     public void tick() {
         super.tick();
@@ -182,27 +200,27 @@ public class MagicMissile extends Projectile {
             }
             case 0 -> {
                 if (level.isClientSide) {
-                    // 每 tick 从同步数据刷新参数并喷射粒子
+                    // 每 tick 从同步数据刷新参数，并沿 hermite 曲线补点作为尾迹珠交给渲染器
                     targetPos = getTargetPos();
                     trackRate = getTrackRate();
                     maxSpeed = getMaxSpeed();
 
                     var newPos = getEyePosition();
                     var newVel = getDeltaMovement();
-                    Vec3 sparkColor = isLocked() ? COLOR_LOCKED : COLOR_FREE;
                     if (lastPos != null && newPos.distanceToSqr(lastPos) < MAX_TRAIL_DIST) {
                         var totalDist = newPos.distanceTo(lastPos);
                         if (totalDist < MAX_TRAIL_DIST || totalDist < maxSpeed) {
                             // 起点切线取上段速度方向、终点切线取当前速度方向
                             var steps = (int) Math.ceil(totalDist / TRAIL_STEP);
+                            var bornAt = level.getGameTime();
                             for (var i = 0; i < steps; i++) {
-                                var midPos = MathUtils.hermite(lastPos, lastVel, newPos, newVel, (float) i / steps);
-                                spawnParticle(PARTICLE_DEFAULT, midPos, sparkColor);
+                                trail.add(new TrailBead(MathUtils.hermite(lastPos, lastVel, newPos, newVel, (float) i / steps), bornAt));
                             }
                         }
                     }
                     lastPos = newPos;
                     lastVel = newVel;
+                    trail.removeIf(bead -> level.getGameTime() - bead.bornAt() > TRAIL_LIFETIME);
                 } else {
                     if (targetEntity == null) {
                         targetEntity = resolveTargetByUuid();

@@ -15,6 +15,8 @@ import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,24 +46,77 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
         super(context);
     }
 
+    private static final ResourceLocation TRAIL_TEXTURE = ResourceLocation.tryParse("yukkuric_bundle:textures/particle/fade_light.png");
+
+    // 尾迹珠：与粒子同状态（SRC_ALPHA 相加混合、不写深度、恒全亮），贴图直连 fade_light，用 0..1 UV 采样
+    // fade_light 的 RGB 恒为白、只有 alpha 径向渐变，故源因子必须取 SRC_ALPHA，否则整块白加出去成白色方块
+    public static final RenderType TRAIL_TYPE = RenderType.create(
+            "magic_missile_trail",
+            DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP, VertexFormat.Mode.QUADS,
+            1536, false, false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(RenderStateShard.RENDERTYPE_TRANSLUCENT_SHADER)
+                    .setTextureState(new RenderStateShard.TextureStateShard(TRAIL_TEXTURE, false, false))
+                    .setTransparencyState(RenderStateShard.LIGHTNING_TRANSPARENCY)
+                    .setLightmapState(RenderStateShard.LIGHTMAP)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+                    .createCompositeState(false)
+    );
+
+    /** 单个尾迹珠的四个角：相机空间单位半径下的 x/y 与对应 uv，顶点顺序与原版粒子一致 */
+    private static final float[][] CORNERS = {{1, -1, 1, 1}, {1, 1, 1, 0}, {-1, 1, 0, 0}, {-1, -1, 0, 1}};
+
     @Override
     public void render(MagicMissile entity, float entityYaw, float partialTick, PoseStack pose,
                        MultiBufferSource buffer, int packedLight) {
-        if (entity.isExploding()) {
-            super.render(entity, entityYaw, partialTick, pose, buffer, packedLight);
-            return;
+        if (!entity.isExploding()) {
+            RandomSource random = entity.level().random;
+
+            // 先画不透明内层，再画半透明外层，使内层透过外层可见；初始飞出阶段只画内层
+            renderInner(entity, partialTick, pose, buffer, random, packedLight);
+            if (!entity.isLaunching()) {
+                Vec3 color = entity.isLocked() ? MagicMissile.COLOR_LOCKED : MagicMissile.COLOR_FREE;
+                renderOuter(color, pose, buffer, random);
+            }
         }
 
-        RandomSource random = entity.level().random;
-
-        // 先画不透明内层，再画半透明外层，使内层透过外层可见；初始飞出阶段只画内层
-        renderInner(entity, partialTick, pose, buffer, random, packedLight);
-        if (!entity.isLaunching()) {
-            Vec3 color = entity.isLocked() ? MagicMissile.COLOR_LOCKED : MagicMissile.COLOR_FREE;
-            renderOuter(color, pose, buffer, random);
-        }
+        // 尾迹珠在最后提交，与原先粒子晚于实体绘制一致，会叠在本体之上
+        renderTrail(entity, partialTick, pose, buffer);
 
         super.render(entity, entityYaw, partialTick, pose, buffer, packedLight);
+    }
+
+    /** 逐颗尾迹珠绘制，尺寸随 age 线性收缩至 0 */
+    private static void renderTrail(MagicMissile entity, float partialTick, PoseStack pose, MultiBufferSource buffer) {
+        var trail = entity.getTrail();
+        if (trail.isEmpty()) return;
+
+        Vec3 origin = entity.getPosition(partialTick);
+        Vec3 color = entity.isLocked() ? MagicMissile.COLOR_LOCKED : MagicMissile.COLOR_FREE;
+        float now = entity.level().getGameTime() + partialTick;
+        // 相机朝向即珠子朝向：实体渲染的 pose 只含平移，珠子在相机空间取 ±x/±y 后再转到世界空间
+        Quaternionf camera = Minecraft.getInstance().gameRenderer.getMainCamera().rotation();
+        Vector3f right = new Vector3f(1, 0, 0).rotate(camera);
+        Vector3f up = new Vector3f(0, 1, 0).rotate(camera);
+        VertexConsumer consumer = buffer.getBuffer(TRAIL_TYPE);
+
+        for (var bead : trail) {
+            float age = now - bead.bornAt();
+            if (age >= MagicMissile.TRAIL_LIFETIME) continue;
+            float size = MagicMissile.TRAIL_SIZE * (1 - age / MagicMissile.TRAIL_LIFETIME);
+            Vec3 center = bead.pos().subtract(origin);
+            for (float[] corner : CORNERS) {
+                float sx = corner[0] * size;
+                float sy = corner[1] * size;
+                consumer.addVertex(pose.last(),
+                                (float) center.x + right.x * sx + up.x * sy,
+                                (float) center.y + right.y * sx + up.y * sy,
+                                (float) center.z + right.z * sx + up.z * sy)
+                        .setColor((float) color.x, (float) color.y, (float) color.z, 1.0F)
+                        .setUv(corner[2], corner[3])
+                        .setLight(LightTexture.FULL_BRIGHT);
+            }
+        }
     }
 
     private void renderInner(MagicMissile entity, float partialTick, PoseStack pose, MultiBufferSource buffer, RandomSource random, int packedLight) {
