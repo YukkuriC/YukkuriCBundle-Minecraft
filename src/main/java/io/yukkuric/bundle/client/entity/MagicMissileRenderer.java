@@ -20,14 +20,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
-    private static final float OUTER_RADIUS = 0.5F;
-    private static final float OUTER_ALPHA = 0.5F;
-    private static final float INNER_RADIUS = 0.3F;
+    public static final float OUTER_RADIUS = 0.5F;
+    public static final float OUTER_ALPHA = 0.5F;
+    public static final float INNER_RADIUS = 0.3F;
     private static final ResourceLocation TEXTURE = ResourceLocation.tryParse("minecraft:textures/block/white_concrete.png");
     private static final ResourceLocation BLOCK_TEXTURE = ResourceLocation.tryParse("minecraft:block/white_concrete");
 
-    // 外层用相加混合（不遮内层颜色），镜像 translucent 只改透明度状态与写掩码
-    private static final RenderType OUTER_TYPE = RenderType.create(
+    // 外层用相加混合（不遮内层颜色），镜像 translucent 只改透明度状态与写掩码；不写深度以免挡掉内层
+    public static final RenderType OUTER_TYPE = RenderType.create(
             "magic_missile_outer",
             DefaultVertexFormat.BLOCK, VertexFormat.Mode.QUADS,
             1536, false, false,
@@ -36,7 +36,7 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
                     .setTextureState(RenderStateShard.BLOCK_SHEET_MIPPED)
                     .setTransparencyState(RenderStateShard.ADDITIVE_TRANSPARENCY)
                     .setLightmapState(RenderStateShard.LIGHTMAP)
-                    .setWriteMaskState(RenderStateShard.COLOR_DEPTH_WRITE)
+                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
                     .createCompositeState(false)
     );
 
@@ -55,7 +55,7 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
         RandomSource random = entity.level().random;
 
         // 先画不透明内层，再画半透明外层，使内层透过外层可见；初始飞出阶段只画内层
-        renderInner(entity, partialTick, pose, buffer, random);
+        renderInner(entity, partialTick, pose, buffer, random, packedLight);
         if (!entity.isLaunching()) {
             Vec3 color = entity.isLocked() ? MagicMissile.COLOR_LOCKED : MagicMissile.COLOR_FREE;
             renderOuter(color, pose, buffer, random);
@@ -64,15 +64,18 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
         super.render(entity, entityYaw, partialTick, pose, buffer, packedLight);
     }
 
-    private void renderInner(MagicMissile entity, float partialTick, PoseStack pose, MultiBufferSource buffer, RandomSource random) {
+    private void renderInner(MagicMissile entity, float partialTick, PoseStack pose, MultiBufferSource buffer, RandomSource random, int packedLight) {
         pose.pushPose();
         pose.scale(INNER_RADIUS, INNER_RADIUS, INNER_RADIUS);
         float angle = (entity.tickCount + partialTick) * 30F;
         pose.mulPose(Axis.YP.rotationDegrees(angle));
         pose.mulPose(Axis.XP.rotationDegrees(angle * 0.6F));
 
-        VertexConsumer consumer = buffer.getBuffer(RenderType.solid());
-        quadLoop(MODEL_INNER, consumer, pose, 1f, 1f, 1f, 1f, random);
+        // 两种模式：初始飞出阶段用 entity 渲染类型，接收环境光照与方向光明暗；
+        // 进入 stage 0 改用 solid，方块 shader 不做方向光，配合全亮度即纯白发光
+        boolean launching = entity.isLaunching();
+        VertexConsumer consumer = buffer.getBuffer(launching ? RenderType.entitySolid(TextureAtlas.LOCATION_BLOCKS) : RenderType.solid());
+        quadLoop(MODEL_INNER, consumer, pose, 1f, 1f, 1f, 1f, random, launching ? packedLight : LightTexture.FULL_BRIGHT);
         pose.popPose();
     }
 
@@ -81,25 +84,25 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
         pose.scale(OUTER_RADIUS, OUTER_RADIUS, OUTER_RADIUS);
 
         VertexConsumer consumer = buffer.getBuffer(OUTER_TYPE);
-        quadLoop(MODEL_OUTER, consumer, pose, (float) color.x * OUTER_ALPHA, (float) color.y * OUTER_ALPHA, (float) color.z * OUTER_ALPHA, OUTER_ALPHA, random);
+        quadLoop(MODEL_OUTER, consumer, pose, (float) color.x * OUTER_ALPHA, (float) color.y * OUTER_ALPHA, (float) color.z * OUTER_ALPHA, OUTER_ALPHA, random, LightTexture.FULL_BRIGHT);
         pose.popPose();
     }
 
-    // 全亮度 + 关闭漫反射明暗，保证纯色、不受环境光影响；遍历各朝向与无朝向四边形
+    // 辉光层固定全亮度，不参与环境光照；遍历各朝向与无朝向四边形
     private static void quadLoop(BakedModel model, VertexConsumer consumer, PoseStack pose,
-                                 float r, float g, float b, float alpha, RandomSource random) {
+                                 float r, float g, float b, float alpha, RandomSource random, int light) {
         for (Direction direction : Direction.values()) {
             for (var quad : model.getQuads(null, direction, random)) {
-                emit(consumer, pose, quad, r, g, b, alpha);
+                emit(consumer, pose, quad, r, g, b, alpha, light);
             }
         }
         for (var quad : model.getQuads(null, null, random)) {
-            emit(consumer, pose, quad, r, g, b, alpha);
+            emit(consumer, pose, quad, r, g, b, alpha, light);
         }
     }
 
-    private static void emit(VertexConsumer consumer, PoseStack pose, BakedQuad quad, float r, float g, float b, float alpha) {
-        consumer.putBulkData(pose.last(), quad, r, g, b, alpha, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, false);
+    private static void emit(VertexConsumer consumer, PoseStack pose, BakedQuad quad, float r, float g, float b, float alpha, int light) {
+        consumer.putBulkData(pose.last(), quad, r, g, b, alpha, light, OverlayTexture.NO_OVERLAY, false);
     }
 
     private static TextureAtlasSprite whiteSprite() {
@@ -112,7 +115,7 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
     }
 
     // 内存模型：外层半透明球在类加载时单次构建并缓存，内层八面体直接写定几何
-    private static final BakedModel MODEL_OUTER = new CustomBakedModel() {
+    public static final BakedModel MODEL_OUTER = new CustomBakedModel() {
         private static final int LON_SEG = 8;
         private static final int LAT_SEG = 6;
 
@@ -141,7 +144,7 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
         }
     };
 
-    private static final BakedModel MODEL_INNER = new CustomBakedModel() {
+    public static final BakedModel MODEL_INNER = new CustomBakedModel() {
         @Override
         protected List<BakedQuad> buildQuads() {
             TextureAtlasSprite sprite = whiteSprite();

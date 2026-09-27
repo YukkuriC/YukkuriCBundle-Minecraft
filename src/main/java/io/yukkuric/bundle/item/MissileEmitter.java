@@ -2,14 +2,18 @@ package io.yukkuric.bundle.item;
 
 import io.yukkuric.bundle.entity.MagicMissile;
 import net.minecraft.core.BlockPos;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.UseAnim;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.*;
@@ -37,6 +41,10 @@ public class MissileEmitter extends Item {
     private static final double LAUNCH_SPEED_MAX = 0.5;
     /** 抛出速度沿随机球面方向的分量上限 */
     private static final double LAUNCH_SCATTER_MAX = 0.4;
+    /** 使用状态持续到玩家松开右键为止 */
+    private static final int USE_DURATION = Integer.MAX_VALUE;
+    /** 持续使用时刷新一批导弹的间隔 tick 数 */
+    private static final int FIRE_INTERVAL = 5;
 
     public MissileEmitter(Properties properties) {
         super(properties);
@@ -46,32 +54,60 @@ public class MissileEmitter extends Item {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (!level.isClientSide) {
-            Vec3 spawnPos = player.getBoundingBox().getCenter();
-            Vec3 look = player.getLookAngle();
-            Vec3 anchor = resolveAnchor(level, player, look);
-            RandomSource random = player.getRandom();
-            List<Entity> targets = scanTargets(level, anchor);
-            if (targets.isEmpty()) {
-                // 无目标：全部打向 anchor 周围 AABB_RADIUS 内随机点
-                for (int i = 0; i < MISSILE_COUNT; i++) {
-                    fireAtRandomPoint(level, spawnPos, anchor, look, player);
-                }
-            } else {
-                Entity nearest = nearest(targets, anchor);
-                for (int i = 0; i < CLOSE_TARGET_COUNT; i++) {
-                    fireAtEntity(level, spawnPos, nearest, look, player);
-                }
-                List<Entity> pool = new ArrayList<>(targets);
-                for (int i = 0; i < RANDOM_TARGET_COUNT; i++) {
-                    fireAtEntity(level, spawnPos, pool.get(random.nextInt(pool.size())), look, player);
-                }
-                int pointCount = MISSILE_COUNT - CLOSE_TARGET_COUNT - RANDOM_TARGET_COUNT;
-                for (int i = 0; i < pointCount; i++) {
-                    fireAtRandomPoint(level, spawnPos, anchor, look, player);
-                }
+            fireBatch(level, player);
+        }
+        player.startUsingItem(hand);
+        // consume 而非 success：使用瞬间不触发挥手动画
+        return InteractionResultHolder.consume(stack);
+    }
+
+    /** 持续使用中按间隔反复发射，逻辑与首次使用完全一致 */
+    @Override
+    public void onUseTick(Level level, LivingEntity entity, ItemStack stack, int remainingUseDuration) {
+        int elapsed = USE_DURATION - remainingUseDuration;
+        if (level.isClientSide || elapsed <= 0 || elapsed % FIRE_INTERVAL != 0) return;
+        if (entity instanceof Player player) fireBatch(level, player);
+    }
+
+    /** 发射一批导弹 */
+    private void fireBatch(Level level, Player player) {
+        Vec3 spawnPos = player.getBoundingBox().getCenter();
+        // except 传 null：音效由服务端广播给附近所有人，含发射者本人
+        level.playSound(null, spawnPos.x, spawnPos.y, spawnPos.z, SoundEvents.SNOWBALL_THROW, SoundSource.NEUTRAL, 0.5F, 0.4F / (level.random.nextFloat() * 0.4F + 0.8F));
+        Vec3 look = player.getLookAngle();
+        Vec3 anchor = resolveAnchor(level, player, look);
+        RandomSource random = player.getRandom();
+        List<Entity> targets = scanTargets(level, anchor);
+        if (targets.isEmpty()) {
+            // 无目标：全部打向 anchor 周围 AABB_RADIUS 内随机点
+            for (int i = 0; i < MISSILE_COUNT; i++) {
+                fireAtRandomPoint(level, spawnPos, anchor, look, player);
+            }
+        } else {
+            Entity nearest = nearest(targets, anchor);
+            for (int i = 0; i < CLOSE_TARGET_COUNT; i++) {
+                fireAtEntity(level, spawnPos, nearest, look, player);
+            }
+            List<Entity> pool = new ArrayList<>(targets);
+            for (int i = 0; i < RANDOM_TARGET_COUNT; i++) {
+                fireAtEntity(level, spawnPos, pool.get(random.nextInt(pool.size())), look, player);
+            }
+            int pointCount = MISSILE_COUNT - CLOSE_TARGET_COUNT - RANDOM_TARGET_COUNT;
+            for (int i = 0; i < pointCount; i++) {
+                fireAtRandomPoint(level, spawnPos, anchor, look, player);
             }
         }
-        return InteractionResultHolder.success(stack);
+    }
+
+    /** 使用中不播放抬起/挥动动画，物品保持在手中原姿态 */
+    @Override
+    public UseAnim getUseAnimation(ItemStack stack) {
+        return UseAnim.NONE;
+    }
+
+    @Override
+    public int getUseDuration(ItemStack stack, LivingEntity entity) {
+        return USE_DURATION;
     }
 
     /** 打向指定目标实体发射一颗魔法弹 */

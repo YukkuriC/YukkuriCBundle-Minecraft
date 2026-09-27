@@ -4,11 +4,14 @@ import com.mojang.logging.LogUtils;
 import io.yukkuric.bundle.block.YCBlocks;
 import io.yukkuric.bundle.client.block.*;
 import io.yukkuric.bundle.client.entity.YCEntityRenderers;
+import io.yukkuric.bundle.client.item.MissileEmitterRenderer;
 import io.yukkuric.bundle.client.particle.FadeLightParticle;
 import io.yukkuric.bundle.damage.YCDamageTypes;
 import io.yukkuric.bundle.entity.YCEntityTypes;
 import io.yukkuric.bundle.item.YCItems;
 import io.yukkuric.bundle.particle.YCParticleTypes;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -23,6 +26,8 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent;
+import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
+import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import org.slf4j.Logger;
@@ -59,9 +64,25 @@ public class YukkuriCBundleMod {
 
     @EventBusSubscriber(modid = MOD_ID, value = Dist.CLIENT)
     public static class ClientRegistries {
+        private static BlockEntityWithoutLevelRenderer missileEmitterRenderer;
+
         @SubscribeEvent
         public static void registerParticleProviders(RegisterParticleProvidersEvent event) {
             event.registerSpriteSet(YCParticleTypes.FADE_LIGHT.get(), FadeLightParticle.Provider::new);
+        }
+
+        @SubscribeEvent
+        public static void registerClientExtensions(RegisterClientExtensionsEvent event) {
+            event.registerItem(new IClientItemExtensions() {
+                @Override
+                public BlockEntityWithoutLevelRenderer getCustomRenderer() {
+                    if (missileEmitterRenderer == null) {
+                        Minecraft minecraft = Minecraft.getInstance();
+                        missileEmitterRenderer = new MissileEmitterRenderer(minecraft.getBlockEntityRenderDispatcher(), minecraft.getEntityModels());
+                    }
+                    return missileEmitterRenderer;
+                }
+            }, YCItems.MISSILE_EMITTER.get());
         }
     }
 
