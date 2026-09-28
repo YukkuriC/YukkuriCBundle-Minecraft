@@ -45,7 +45,10 @@ public class MagicMissile extends Projectile {
     private static final float EXPLODE_SIZE_MIN = 0.2F;
     private static final float EXPLODE_SIZE_MAX = 1.0F;
     /** 最大初始半宽对应的光点收缩时长（tick），更小的光点按大小正比缩短 */
-    private static final int EXPLODE_LIFETIME = 40;
+    private static final int EXPLODE_LIFETIME = 30;
+    /** 压在爆心的闪光：比其余光点更大、消散更快 */
+    private static final float EXPLODE_FLASH_SIZE = 2.0F;
+    private static final int EXPLODE_FLASH_LIFETIME = 10;
 
     private static final float DEF_TRACK_RATE = 0.05F;
     private static final float TRACK_RATE_INC = 0.01F;
@@ -354,9 +357,13 @@ public class MagicMissile extends Projectile {
             case 1 -> {
                 if (level.isClientSide) {
                     targetEntity = resolveTargetById();
-                    // 客户端检测“刚进入 explode 状态”，铺开一次爆炸光点
+                    // 客户端检测“刚进入 explode 状态”：先补上最后一 tick 到爆心的这段尾迹，再铺开爆炸光点
                     if (stage == 1 && !markFlag) {
                         markFlag = true;
+                        var head = getEyePosition();
+                        if (lastPos != null) {
+                            sampleTrail(lastPos, lastVel, head, getDeltaMovement(), isInside(head));
+                        }
                         spawnExplosionBeads();
                     }
                 }
@@ -387,6 +394,8 @@ public class MagicMissile extends Projectile {
             explosion.add(new ExplodeBead(pos, size, EXPLODE_LIFETIME * size / EXPLODE_SIZE_MAX, isInside(pos), bornAt));
         }
         var eye = getEyePosition();
+        // 爆心再压一个大光点
+        explosion.add(new ExplodeBead(eye, EXPLODE_FLASH_SIZE, EXPLODE_FLASH_LIFETIME, isInside(eye), bornAt));
         Minecraft.getInstance().particleEngine.createParticle(ParticleTypes.EXPLOSION, eye.x, eye.y, eye.z, 0.0, 0.0, 0.0);
     }
 
