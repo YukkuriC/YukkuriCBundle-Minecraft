@@ -16,6 +16,9 @@ import net.minecraft.client.renderer.texture.*;
 public class FadeLightParticle extends TextureSheetParticle {
     private float initialSize;
 
+    /**
+     * 就是你丫搞的鬼
+     */
     private static final ParticleRenderType ADDITIVE = new ParticleRenderType() {
         @Override
         public BufferBuilder begin(Tesselator tesselator, TextureManager textureManager) {

@@ -7,6 +7,11 @@ import net.minecraft.core.particles.ParticleType;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 
+/**
+ * fade_light 粒子类型注册。
+ * 注意：该粒子走 ADDITIVE render type，与原版地形不在同一批次，刷出时序不定会导致闪烁，因此尾迹与爆炸光点已改由实体渲染器直接绘制；
+ * 此处实现保留备用。
+ */
 public class FadeLightParticleType extends ParticleType<FadeLightParticleOptions> {
     private static final MapCodec<FadeLightParticleOptions> CODEC = RecordCodecBuilder.mapCodec(inst ->
             inst.group(

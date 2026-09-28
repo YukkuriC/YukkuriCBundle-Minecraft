@@ -69,9 +69,9 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
     private static final float[][] CORNERS = {{1, -1, 1, 1}, {1, 1, 1, 0}, {-1, 1, 0, 0}, {-1, -1, 0, 1}};
 
     /**
-     * 尾迹不写深度，因此相机侧更远的半透明地形仍会盖到它的像素上。据此按“珠子是否埋在方块或流体内”分两趟绘制：
+     * 尾迹与爆炸光点都不写深度，因此相机侧更远的半透明地形仍会盖到它们的像素上。据此按“珠子是否埋在方块或流体内”分两趟绘制：
      * 埋在里面的在实体之后立刻绘制，由挡在前面的地形混合出“透过去/水下”的观感；露在外面的留到半透明地形之后绘制，免得被身后的地形染色。
-     * 内外状态在生成尾迹珠时就已随珠定死，这里只管读取，不做任何射线检测。
+     * 内外状态在生成时（尾迹沿路径推断、爆炸光点逐点判定）就已随珠定死，这里只管读取，不做任何射线检测。
      */
     public static void renderStage(RenderLevelStageEvent event) {
         var stage = event.getStage();
@@ -96,7 +96,7 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
             Vec3 offset = missile.getPosition(partialTick).subtract(camera);
             pose.pushPose();
             pose.translate(offset.x, offset.y, offset.z);
-            renderer.renderTrail(missile, partialTick, pose, buffer, inside);
+            renderer.renderBeads(missile, partialTick, pose, buffer, inside);
             pose.popPose();
         }
 
@@ -123,12 +123,9 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
         }
     }
 
-    /** 逐颗尾迹珠绘制，尺寸随 age 线性收缩至 0；只画分流后属于本趟的珠子 */
-    private void renderTrail(MagicMissile entity, float partialTick, PoseStack pose, MultiBufferSource buffer,
+    /** 逐颗绘制尾迹珠与爆炸光点，尺寸按各自寿命线性收缩至 0；只画分流后属于本趟的珠子 */
+    private void renderBeads(MagicMissile entity, float partialTick, PoseStack pose, MultiBufferSource buffer,
                              boolean inside) {
-        var trail = entity.getTrail();
-        if (trail.isEmpty()) return;
-
         Vec3 origin = entity.getPosition(partialTick);
         Vec3 color = entity.isLocked() ? MagicMissile.COLOR_LOCKED : MagicMissile.COLOR_FREE;
         float now = entity.level().getGameTime() + partialTick;
@@ -138,23 +135,32 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
         Vector3f up = new Vector3f(0, 1, 0).rotate(cameraRot);
         VertexConsumer consumer = buffer.getBuffer(TRAIL_TYPE);
 
-        for (var bead : trail) {
-            if (bead.inside() != inside) continue;
+        for (var bead : entity.getTrail()) {
+            float life = MagicMissile.TRAIL_LIFETIME;
             float age = now - bead.bornAt();
-            if (age >= MagicMissile.TRAIL_LIFETIME) continue;
-            float size = MagicMissile.TRAIL_SIZE * (1 - age / MagicMissile.TRAIL_LIFETIME);
-            Vec3 center = bead.pos().subtract(origin);
-            for (float[] corner : CORNERS) {
-                float sx = corner[0] * size;
-                float sy = corner[1] * size;
-                consumer.addVertex(pose.last(),
-                                (float) center.x + right.x * sx + up.x * sy,
-                                (float) center.y + right.y * sx + up.y * sy,
-                                (float) center.z + right.z * sx + up.z * sy)
-                        .setColor((float) color.x, (float) color.y, (float) color.z, 1.0F)
-                        .setUv(corner[2], corner[3])
-                        .setLight(LightTexture.FULL_BRIGHT);
-            }
+            if (bead.inside() != inside || age >= life) continue;
+            emitBead(consumer, pose, bead.pos().subtract(origin), right, up, MagicMissile.TRAIL_SIZE * (1 - age / life), color);
+        }
+        for (var bead : entity.getExplosion()) {
+            float age = now - bead.bornAt();
+            if (bead.inside() != inside || age >= bead.life()) continue;
+            emitBead(consumer, pose, bead.pos().subtract(origin), right, up, bead.size() * (1 - age / bead.life()), color);
+        }
+    }
+
+    /** 一颗光点的四个顶点：在相机空间取 ±x/±y 后转到世界空间，颜色与 UV 固定 */
+    private static void emitBead(VertexConsumer consumer, PoseStack pose, Vec3 center, Vector3f right, Vector3f up,
+                                 float size, Vec3 color) {
+        for (float[] corner : CORNERS) {
+            float sx = corner[0] * size;
+            float sy = corner[1] * size;
+            consumer.addVertex(pose.last(),
+                            (float) center.x + right.x * sx + up.x * sy,
+                            (float) center.y + right.y * sx + up.y * sy,
+                            (float) center.z + right.z * sx + up.z * sy)
+                    .setColor((float) color.x, (float) color.y, (float) color.z, 1.0F)
+                    .setUv(corner[2], corner[3])
+                    .setLight(LightTexture.FULL_BRIGHT);
         }
     }
 

@@ -1,14 +1,9 @@
 package io.yukkuric.bundle.entity;
 
-import io.yukkuric.bundle.client.particle.FadeLightParticle;
 import io.yukkuric.bundle.damage.YCDamageTypes;
-import io.yukkuric.bundle.particle.FadeLightParticleOptions;
 import io.yukkuric.bundle.utils.MathUtils;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.particle.Particle;
-import net.minecraft.client.particle.ParticleEngine;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.*;
@@ -27,7 +22,9 @@ import org.joml.Vector3f;
 
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -44,7 +41,11 @@ public class MagicMissile extends Projectile {
     /** 尾迹珠寿命（tick），到期后由渲染器淡出 */
     public static final int TRAIL_LIFETIME = 30;
 
-    public static final FadeLightParticleOptions PARTICLE_EXPLODE = new FadeLightParticleOptions(0.5F, 40);
+    /** 爆炸光点初始半宽的取值范围，落点与大小均在爆炸瞬间一次定死 */
+    private static final float EXPLODE_SIZE_MIN = 0.2F;
+    private static final float EXPLODE_SIZE_MAX = 1.0F;
+    /** 最大初始半宽对应的光点收缩时长（tick），更小的光点按大小正比缩短 */
+    private static final int EXPLODE_LIFETIME = 40;
 
     private static final float DEF_TRACK_RATE = 0.05F;
     private static final float TRACK_RATE_INC = 0.01F;
@@ -61,8 +62,8 @@ public class MagicMissile extends Projectile {
     private static final double FUSE_RANGE = 1.0;
     /** 计时累计超过该 tick 数后引爆 */
     private static final int FUSE_ON = 10;
-    /** stage=1 后累计该 tick 数，随后 discard；留出余量覆盖 stage 同步延迟，避免尾迹被实体移除时硬切 */
-    private static final int EXPLODE_TICKS = TRAIL_LIFETIME + 2;
+    /** stage=1 后累计该 tick 数，随后 discard；留出余量覆盖 stage 同步延迟，避免尾迹与爆炸光点被实体移除时硬切 */
+    private static final int EXPLODE_TICKS = EXPLODE_LIFETIME + 2;
     /** 爆炸框选 AABB 边长（格） */
     private static final double EXPLODE_BOX = 2.0;
 
@@ -84,7 +85,7 @@ public class MagicMissile extends Projectile {
 
     /** 服务端私有计时累计变量（fuse 引爆计时与 explode 消失倒计时复用） */
     private int fusedTicks;
-    /** 一次性触发标记（服务端 fuse 计时 / 客户端 explode 粒子各用一次） */
+    /** 一次性触发标记（服务端 fuse 计时 / 客户端爆炸光点各用一次） */
     private boolean markFlag;
 
     protected MagicMissile(EntityType<MagicMissile> type, Level level) {
@@ -169,6 +170,16 @@ public class MagicMissile extends Projectile {
 
     public Deque<TrailBead> getTrail() {
         return trail;
+    }
+
+    /** 爆炸光点：随机落点 + 初始半宽 + 收缩时长（正比于大小）+ 生成时是否埋在方块或流体里 + 生成时的 tick 计数 */
+    public record ExplodeBead(Vec3 pos, float size, float life, boolean inside, long bornAt) {}
+
+    /** 客户端爆炸光点，爆炸瞬间一次性铺开，之后只按 age 收缩淡出 */
+    private final List<ExplodeBead> explosion = new ArrayList<>();
+
+    public List<ExplodeBead> getExplosion() {
+        return explosion;
     }
 
     /** 该点是否埋在方块或流体的实际形状里。vanilla 的 clip 只认“线段真的穿过某个面”，自己原地不动那种射线一律判不中，故这里直接按块内的形状盒子判定 */
@@ -343,10 +354,10 @@ public class MagicMissile extends Projectile {
             case 1 -> {
                 if (level.isClientSide) {
                     targetEntity = resolveTargetById();
-                    // 客户端检测“刚进入 explode 状态”，喷发一次爆炸粒子
+                    // 客户端检测“刚进入 explode 状态”，铺开一次爆炸光点
                     if (stage == 1 && !markFlag) {
                         markFlag = true;
-                        spawnExplosionParticles();
+                        spawnExplosionBeads();
                     }
                 }
 
@@ -362,25 +373,21 @@ public class MagicMissile extends Projectile {
         }
     }
 
-    private ParticleEngine _cachedEngine = null;
-
-    private Particle spawnParticle(ParticleOptions particle, AABB box, @Nullable Vec3 overrideColor) {
+    /** 客户端进入 explode 时，在爆炸范围内一次性铺开 30 个随机光点；光点不走路径，内外只能逐点判定 */
+    private void spawnExplosionBeads() {
+        AABB box = explodeBox();
+        var bornAt = level.getGameTime();
         var random = level.random;
-        double x = box.minX + box.getXsize() * random.nextDouble();
-        double y = box.minY + box.getYsize() * random.nextDouble();
-        double z = box.minZ + box.getZsize() * random.nextDouble();
-        return spawnParticle(particle, new Vec3(x, y, z), overrideColor);
-    }
-    private Particle spawnParticle(ParticleOptions particle, Vec3 center, @Nullable Vec3 overrideColor) {
-        var particleEngine = _cachedEngine == null ? (_cachedEngine = Minecraft.getInstance().particleEngine) : _cachedEngine;
-        double x = center.x;
-        double y = center.y;
-        double z = center.z;
-        var spawned = particleEngine.createParticle(particle, x, y, z, 0.0, 0.0, 0.0);
-        if (overrideColor != null) {
-            spawned.setColor((float) overrideColor.x, (float) overrideColor.y, (float) overrideColor.z);
+        for (int i = 0; i < 30; i++) {
+            var pos = new Vec3(
+                    box.minX + box.getXsize() * random.nextDouble(),
+                    box.minY + box.getYsize() * random.nextDouble(),
+                    box.minZ + box.getZsize() * random.nextDouble());
+            var size = EXPLODE_SIZE_MIN + (float) Math.random() * (EXPLODE_SIZE_MAX - EXPLODE_SIZE_MIN);
+            explosion.add(new ExplodeBead(pos, size, EXPLODE_LIFETIME * size / EXPLODE_SIZE_MAX, isInside(pos), bornAt));
         }
-        return spawned;
+        var eye = getEyePosition();
+        Minecraft.getInstance().particleEngine.createParticle(ParticleTypes.EXPLOSION, eye.x, eye.y, eye.z, 0.0, 0.0, 0.0);
     }
 
     /**
@@ -407,17 +414,6 @@ public class MagicMissile extends Projectile {
                 (EXPLODE_BOX - getBbWidth()) / 2.0,
                 (EXPLODE_BOX - getBbHeight()) / 2.0,
                 (EXPLODE_BOX - getBbWidth()) / 2.0);
-    }
-
-    /** 客户端进入 explode 时，在爆炸范围内一次性喷发 30 个随机 electric spark 粒子 */
-    private void spawnExplosionParticles() {
-        AABB box = explodeBox();
-        Vec3 color = isLocked() ? COLOR_LOCKED : COLOR_FREE;
-        for (int i = 0; i < 30; i++) {
-            var particle = (FadeLightParticle) spawnParticle(PARTICLE_EXPLODE, box, color);
-            particle.setSize(0.2f + (float) Math.random() * 0.8f);
-        }
-        spawnParticle(ParticleTypes.EXPLOSION, getEyePosition(), null);
     }
 
     /** 是否已进入 explode 阶段（供渲染器判断不再渲染模型） */
