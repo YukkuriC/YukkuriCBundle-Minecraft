@@ -22,6 +22,7 @@ import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.*;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.joml.Vector3f;
 
 import javax.annotation.Nullable;
@@ -157,14 +158,65 @@ public class MagicMissile extends Projectile {
     private @Nullable Vec3 lastPos = null;
     private @Nullable Vec3 lastVel = null;
 
-    /** 尾迹珠：世界坐标 + 生成时的 tick 计数，由渲染器按 age 收缩绘制 */
-    public record TrailBead(Vec3 pos, long bornAt) {}
+    /** 上一 tick 采样出的内外状态，仅用于判断本 tick 的补点是否需要截出分界 */
+    private boolean wasInside;
+
+    /** 尾迹珠：世界坐标 + 生成时的 tick 计数 + 生成时是否埋在方块或流体里，渲染器按 age 收缩并据此分趟绘制 */
+    public record TrailBead(Vec3 pos, long bornAt, boolean inside) {}
 
     /** 客户端尾迹采样，仅 stage 0 追加，进入爆炸后停止追加以便自然淡出 */
     private final Deque<TrailBead> trail = new ArrayDeque<>();
 
     public Deque<TrailBead> getTrail() {
         return trail;
+    }
+
+    /** 该点是否埋在方块或流体的实际形状里。vanilla 的 clip 只认“线段真的穿过某个面”，自己原地不动那种射线一律判不中，故这里直接按块内的形状盒子判定 */
+    private boolean isInside(Vec3 pos) {
+        var bp = BlockPos.containing(pos);
+        return inShape(level.getBlockState(bp).getCollisionShape(level, bp), bp, pos)
+                || inShape(level.getFluidState(bp).getShape(level, bp), bp, pos);
+    }
+
+    /** 形状坐标相对块原点，平移到世界坐标后逐盒判断该点是否落在里面 */
+    private static boolean inShape(VoxelShape shape, BlockPos bp, Vec3 pos) {
+        if (shape.isEmpty()) return false;
+        for (var box : shape.toAabbs()) {
+            if (box.move(bp.getX(), bp.getY(), bp.getZ()).contains(pos)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * 沿 hermite 曲线补点，并把每颗珠子的内外状态就地钉死，渲染时无需再做任何射线检测。
+     * 与上一 tick 状态相同则整段沿用；翻转的这段从外侧那端朝内侧打一条射线取遮挡体表面，离它最近的珠子成为新旧状态的分界。
+     */
+    private void sampleTrail(Vec3 from, Vec3 fromVel, Vec3 to, Vec3 toVel, boolean inside) {
+        // 起点切线取上段速度方向、终点切线取当前速度方向
+        var steps = (int) Math.ceil(to.distanceTo(from) / TRAIL_STEP);
+        var bornAt = level.getGameTime();
+        int boundary = -1;
+        if (inside != wasInside) {
+            // 从外侧那端朝内侧打射线，命中点即遮挡体表面
+            var outsideEnd = inside ? from : to;
+            var insideEnd = inside ? to : from;
+            var surface = level.clip(new ClipContext(outsideEnd, insideEnd, ClipContext.Block.COLLIDER, ClipContext.Fluid.ANY, this));
+            if (surface.getType() != HitResult.Type.MISS) {
+                var hit = surface.getLocation();
+                var best = Double.MAX_VALUE;
+                for (var i = 0; i < steps; i++) {
+                    var dist = MathUtils.hermite(from, fromVel, to, toVel, (float) i / steps).distanceToSqr(hit);
+                    if (dist < best) {
+                        best = dist;
+                        boundary = i;
+                    }
+                }
+            }
+        }
+        for (var i = 0; i < steps; i++) {
+            var pos = MathUtils.hermite(from, fromVel, to, toVel, (float) i / steps);
+            trail.add(new TrailBead(pos, bornAt, (boundary < 0 || i >= boundary) ? inside : !inside));
+        }
     }
 
     @Override
@@ -207,19 +259,16 @@ public class MagicMissile extends Projectile {
 
                     var newPos = getEyePosition();
                     var newVel = getDeltaMovement();
+                    boolean inside = isInside(newPos);
                     if (lastPos != null && newPos.distanceToSqr(lastPos) < MAX_TRAIL_DIST) {
                         var totalDist = newPos.distanceTo(lastPos);
                         if (totalDist < MAX_TRAIL_DIST || totalDist < maxSpeed) {
-                            // 起点切线取上段速度方向、终点切线取当前速度方向
-                            var steps = (int) Math.ceil(totalDist / TRAIL_STEP);
-                            var bornAt = level.getGameTime();
-                            for (var i = 0; i < steps; i++) {
-                                trail.add(new TrailBead(MathUtils.hermite(lastPos, lastVel, newPos, newVel, (float) i / steps), bornAt));
-                            }
+                            sampleTrail(lastPos, lastVel, newPos, newVel, inside);
                         }
                     }
                     lastPos = newPos;
                     lastVel = newVel;
+                    wasInside = inside;
                     trail.removeIf(bead -> level.getGameTime() - bead.bornAt() > TRAIL_LIFETIME);
                 } else {
                     if (targetEntity == null) {
