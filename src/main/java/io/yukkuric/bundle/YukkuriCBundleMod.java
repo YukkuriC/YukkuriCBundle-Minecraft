@@ -3,6 +3,7 @@ package io.yukkuric.bundle;
 import com.mojang.logging.LogUtils;
 import io.yukkuric.bundle.block.YCBlocks;
 import io.yukkuric.bundle.client.block.*;
+import io.yukkuric.bundle.client.entity.MagicMissileRenderer;
 import io.yukkuric.bundle.client.entity.YCEntityRenderers;
 import io.yukkuric.bundle.client.item.MissileEmitterRenderer;
 import io.yukkuric.bundle.client.particle.FadeLightParticle;
@@ -28,6 +29,7 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterParticleProvidersEvent;
 import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import org.slf4j.Logger;
@@ -90,6 +92,7 @@ public class YukkuriCBundleMod {
     public static class ClientModEvents {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
+            NeoForge.EVENT_BUS.addListener(MagicMissileRenderer::renderStage);
         }
 
         @SubscribeEvent

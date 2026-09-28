@@ -5,6 +5,7 @@ import com.mojang.math.Axis;
 import io.yukkuric.bundle.client.CustomBakedModel;
 import io.yukkuric.bundle.entity.MagicMissile;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.entity.EntityRenderer;
@@ -14,12 +15,22 @@ import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
     public static final float OUTER_RADIUS = 0.5F;
@@ -66,41 +77,89 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
     /** 单个尾迹珠的四个角：相机空间单位半径下的 x/y 与对应 uv，顶点顺序与原版粒子一致 */
     private static final float[][] CORNERS = {{1, -1, 1, 1}, {1, 1, 1, 0}, {-1, 1, 0, 0}, {-1, -1, 0, 1}};
 
+    /** 相邻珠子的屏幕上距离小于该像素数时就沿用上一颗的判定，不必重打射线 */
+    private static final float SAMPLE_GAP_PX = 2.0F;
+
+    /** 每帧两趟共用同一份采样：第一趟打完射线后按实体存放，第二趟直接回放；弱引用免得实体移除后残留 */
+    private static final Map<MagicMissile, Occlusion> OCCLUSION = new WeakHashMap<>();
+
+    /**
+     * 尾迹不写深度，因此相机侧更远的半透明地形仍会盖到它的像素上。据此按“相机与珠子之间是否隔着方块/流体模型”分两趟绘制：
+     * 隔着东西的在实体之后立刻绘制，由挡在前面的地形混合出“透过去/水下”的观感；视线通畅的留到半透明地形之后绘制，免得被身后的地形染色。
+     */
+    public static void renderStage(RenderLevelStageEvent event) {
+        var stage = event.getStage();
+        boolean occluded = stage == RenderLevelStageEvent.Stage.AFTER_ENTITIES;
+        if (!occluded && stage != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
+
+        Minecraft minecraft = Minecraft.getInstance();
+        ClientLevel level = minecraft.level;
+        if (level == null) return;
+
+        var dispatcher = minecraft.getEntityRenderDispatcher();
+        var buffer = minecraft.renderBuffers().bufferSource();
+        // 珠子在相机空间直接取 ±x/±y，故这里只用平移、不带任何旋转的 pose
+        PoseStack pose = new PoseStack();
+        Vec3 camera = event.getCamera().getPosition();
+        float partialTick = event.getPartialTick().getGameTimeDeltaPartialTick(true);
+        var halfWidth = minecraft.getWindow().getWidth() / 2F;
+        var halfHeight = minecraft.getWindow().getHeight() / 2F;
+
+        for (var entity : level.entitiesForRendering()) {
+            if (!(entity instanceof MagicMissile missile)) continue;
+            if (!(dispatcher.getRenderer(missile) instanceof MagicMissileRenderer renderer)) continue;
+            var occlusion = OCCLUSION.computeIfAbsent(missile, k -> new Occlusion());
+            // 采样只做一趟，第二趟照抄第一趟的判定
+            if (occluded) occlusion.sample(level, camera, missile.getTrail(), event.getProjectionMatrix(), event.getModelViewMatrix(), halfWidth, halfHeight);
+            // 事件不在实体渲染流程内，位置平移要自行补上
+            Vec3 offset = missile.getPosition(partialTick).subtract(camera);
+            pose.pushPose();
+            pose.translate(offset.x, offset.y, offset.z);
+            renderer.renderTrail(missile, partialTick, pose, buffer, occlusion, occluded);
+            pose.popPose();
+        }
+
+        // 自定义批次不在原版地形批次的统一提交名单内，必须自行提交才能落在本阶段；
+        // 本体各层先于尾迹提交，尾迹才会叠在本体之上
+        buffer.endBatch(RenderType.solid());
+        buffer.endBatch(RenderType.entitySolid(TextureAtlas.LOCATION_BLOCKS));
+        buffer.endBatch(OUTER_TYPE);
+        buffer.endBatch(TRAIL_TYPE);
+    }
+
+    /** 本体仍在实体阶段绘制：随后绘制的水面会混合出浸没观感，不透明方块则由深度测试剔除 */
     @Override
     public void render(MagicMissile entity, float entityYaw, float partialTick, PoseStack pose,
                        MultiBufferSource buffer, int packedLight) {
-        if (!entity.isExploding()) {
-            RandomSource random = entity.level().random;
+        if (entity.isExploding()) return;
+        RandomSource random = entity.level().random;
 
-            // 先画不透明内层，再画半透明外层，使内层透过外层可见；初始飞出阶段只画内层
-            renderInner(entity, partialTick, pose, buffer, random, packedLight);
-            if (!entity.isLaunching()) {
-                Vec3 color = entity.isLocked() ? MagicMissile.COLOR_LOCKED : MagicMissile.COLOR_FREE;
-                renderOuter(color, pose, buffer, random);
-            }
+        // 先画不透明内层，再画半透明外层，使内层透过外层可见；初始飞出阶段只画内层
+        renderInner(entity, partialTick, pose, buffer, random, packedLight);
+        if (!entity.isLaunching()) {
+            Vec3 color = entity.isLocked() ? MagicMissile.COLOR_LOCKED : MagicMissile.COLOR_FREE;
+            renderOuter(color, pose, buffer, random);
         }
-
-        // 尾迹珠在最后提交，与原先粒子晚于实体绘制一致，会叠在本体之上
-        renderTrail(entity, partialTick, pose, buffer);
-
-        super.render(entity, entityYaw, partialTick, pose, buffer, packedLight);
     }
 
-    /** 逐颗尾迹珠绘制，尺寸随 age 线性收缩至 0 */
-    private static void renderTrail(MagicMissile entity, float partialTick, PoseStack pose, MultiBufferSource buffer) {
+    /** 逐颗尾迹珠绘制，尺寸随 age 线性收缩至 0；只画分流后属于本趟的珠子 */
+    private void renderTrail(MagicMissile entity, float partialTick, PoseStack pose, MultiBufferSource buffer,
+                             Occlusion occlusion, boolean occluded) {
         var trail = entity.getTrail();
         if (trail.isEmpty()) return;
 
         Vec3 origin = entity.getPosition(partialTick);
         Vec3 color = entity.isLocked() ? MagicMissile.COLOR_LOCKED : MagicMissile.COLOR_FREE;
         float now = entity.level().getGameTime() + partialTick;
-        // 相机朝向即珠子朝向：实体渲染的 pose 只含平移，珠子在相机空间取 ±x/±y 后再转到世界空间
-        Quaternionf camera = Minecraft.getInstance().gameRenderer.getMainCamera().rotation();
-        Vector3f right = new Vector3f(1, 0, 0).rotate(camera);
-        Vector3f up = new Vector3f(0, 1, 0).rotate(camera);
+        // 相机朝向即珠子朝向：pose 只含平移，珠子在相机空间取 ±x/±y 后再转到世界空间
+        Quaternionf cameraRot = Minecraft.getInstance().gameRenderer.getMainCamera().rotation();
+        Vector3f right = new Vector3f(1, 0, 0).rotate(cameraRot);
+        Vector3f up = new Vector3f(0, 1, 0).rotate(cameraRot);
         VertexConsumer consumer = buffer.getBuffer(TRAIL_TYPE);
 
+        int index = 0;
         for (var bead : trail) {
+            if (occlusion.at(index++) != occluded) continue;
             float age = now - bead.bornAt();
             if (age >= MagicMissile.TRAIL_LIFETIME) continue;
             float size = MagicMissile.TRAIL_SIZE * (1 - age / MagicMissile.TRAIL_LIFETIME);
@@ -116,6 +175,74 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
                         .setUv(corner[2], corner[3])
                         .setLight(LightTexture.FULL_BRIGHT);
             }
+        }
+    }
+
+    /** 相机到该点之间是否隔着方块或流体的实际形状，用于决定这份几何落在半透明地形之前还是之后 */
+    private static boolean isOccluded(Level level, Vec3 from, Vec3 to) {
+        ClipContext context = new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.ANY, CollisionContext.empty());
+        return level.clip(context).getType() != HitResult.Type.MISS;
+    }
+
+    /**
+     * 一次渲染的逐珠判定结果：整条尾迹铺开后屏幕上密密麻麻，逐颗打射线纯属浪费。
+     * 于是把珠子投影到屏幕，凡与上一个“控制点”相距不足 {@link #SAMPLE_GAP_PX} 像素的都沿用控制点的结果，
+     * 只有拉开距离才重新打射线并把自己变成新的控制点，结果按珠子序号记下来供两趟渲染回放。
+     */
+    private static final class Occlusion {
+        /** 控制点所在的珠子序号，递增 */
+        private int[] indices = new int[0];
+        /** 各控制点的判定结果 */
+        private boolean[] results = new boolean[0];
+        private int count;
+        /** 回放游标与它上次应答的序号，序号倒退说明换了一趟，回到开头 */
+        private int cursor;
+        private int lastIndex = -1;
+        /** 投影矩阵与其乘法暂存，避免逐珠新建 */
+        private final Matrix4f mvp = new Matrix4f();
+        private final Vector4f scratch = new Vector4f();
+
+        void sample(Level level, Vec3 camera, Deque<MagicMissile.TrailBead> trail,
+                    Matrix4f projection, Matrix4f modelView, float halfWidth, float halfHeight) {
+            int size = trail.size();
+            if (indices.length < size) {
+                indices = new int[size];
+                results = new boolean[size];
+            }
+            count = 0;
+            cursor = 0;
+            lastIndex = -1;
+            mvp.set(projection).mul(modelView);
+            float gapSqr = SAMPLE_GAP_PX * SAMPLE_GAP_PX;
+            float lastX = 0F;
+            float lastY = 0F;
+            boolean sampled = false;
+            int index = 0;
+            for (var bead : trail) {
+                Vec3 pos = bead.pos();
+                scratch.set((float) (pos.x - camera.x), (float) (pos.y - camera.y), (float) (pos.z - camera.z), 1F).mul(mvp);
+                float x = scratch.x / scratch.w * halfWidth;
+                float y = scratch.y / scratch.w * halfHeight;
+                float dx = x - lastX;
+                float dy = y - lastY;
+                if (!sampled || dx * dx + dy * dy >= gapSqr) {
+                    indices[count] = index;
+                    results[count] = isOccluded(level, camera, pos);
+                    count++;
+                    lastX = x;
+                    lastY = y;
+                    sampled = true;
+                }
+                index++;
+            }
+        }
+
+        /** 第 index 颗珠子的判定，即序号不超过它的最近一个控制点 */
+        boolean at(int index) {
+            if (index < lastIndex) cursor = 0;
+            lastIndex = index;
+            while (cursor + 1 < count && indices[cursor + 1] <= index) cursor++;
+            return results[cursor];
         }
     }
 
