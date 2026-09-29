@@ -12,7 +12,7 @@ public class YCItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MOD_ID);
 
     public static final DeferredItem<MissileEmitter> MISSILE_EMITTER = ITEMS.registerItem(MissileEmitter.ID, MissileEmitter::new,
-            new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)
+            MissileEmitter.PROPS
     );
 
     public static void register(IEventBus bus) {

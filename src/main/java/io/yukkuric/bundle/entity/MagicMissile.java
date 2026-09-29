@@ -8,6 +8,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.*;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.*;
@@ -21,12 +22,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import org.joml.Vector3f;
 
 import javax.annotation.Nullable;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
+import java.util.function.Predicate;
 
 public class MagicMissile extends Projectile {
     public static final String ID = "magic_missile";
@@ -57,9 +54,14 @@ public class MagicMissile extends Projectile {
     /** 初始飞出阶段的每 tick 速度衰减系数 */
     private static final double FLY_DECAY = 0.99;
     /** 初始飞出阶段持续的 tick 数，之后进入追踪阶段 */
-    private static final int FLY_TICKS = 20;
-    private static final float MAX_TRAIL_DIST = 20;
+    public static final int PREWARM_TICKS = 20;
+    private static final float MAX_TRAIL_DIST = 200;
     private static final float TRAIL_STEP = 0.1f;
+
+    /** 锁定目标失效后，按当前速度外推的 tick 数，所得位置作为新的目标点 */
+    private static final int TARGET_LOST_LOOKAHEAD = 20;
+    /** 锁定目标失效后，重新搜索可锁定目标的范围 */
+    private static final double RELOCK_RANGE = 16;
 
     /** 距目标点不足该距离（格）首次触发计时 */
     private static final double FUSE_RANGE = 1.0;
@@ -85,6 +87,9 @@ public class MagicMissile extends Projectile {
     private UUID targetUuid;
     private Vec3 targetPos = Vec3.ZERO;
     protected Level level;
+
+    @Nullable
+    public Predicate<Entity> targetSelector;
 
     /** 服务端私有计时累计变量（fuse 引爆计时与 explode 消失倒计时复用） */
     private int fusedTicks;
@@ -135,7 +140,7 @@ public class MagicMissile extends Projectile {
         if (targetUuid != null) {
             tag.putUUID("TargetEntity", targetUuid);
         }
-        Vector3f pos = getEntityData().get(DATA_TARGET_POS);
+        Vector3f pos = entityData.get(DATA_TARGET_POS);
         tag.putFloat("TargetX", pos.x);
         tag.putFloat("TargetY", pos.y);
         tag.putFloat("TargetZ", pos.z);
@@ -149,9 +154,9 @@ public class MagicMissile extends Projectile {
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         targetUuid = tag.hasUUID("TargetEntity") ? tag.getUUID("TargetEntity") : null;
-        getEntityData().set(DATA_TARGET_ENTITY_ID, 0);
-        getEntityData().set(DATA_TARGET_POS, new Vector3f(tag.getFloat("TargetX"), tag.getFloat("TargetY"), tag.getFloat("TargetZ")));
-        getEntityData().set(DATA_DAMAGE, tag.getFloat("Damage"));
+        entityData.set(DATA_TARGET_ENTITY_ID, 0);
+        entityData.set(DATA_TARGET_POS, new Vector3f(tag.getFloat("TargetX"), tag.getFloat("TargetY"), tag.getFloat("TargetZ")));
+        entityData.set(DATA_DAMAGE, tag.getFloat("Damage"));
         setTrackRate(tag.getFloat("TrackRate"));
         setMaxSpeed(tag.getFloat("MaxSpeed"));
         targetPos = getTargetPos();
@@ -165,8 +170,9 @@ public class MagicMissile extends Projectile {
     /** 上一 tick 采样出的内外状态，仅用于判断本 tick 的补点是否需要截出分界 */
     private boolean wasInside;
 
-    /** 尾迹珠：世界坐标 + 生成时的 tick 计数 + 生成时是否埋在方块或流体里，渲染器按 age 收缩并据此分趟绘制 */
-    public record TrailBead(Vec3 pos, long bornAt, boolean inside) {}
+    /** 尾迹珠：世界坐标 + 生成时的 tick 计数 + 生成时是否埋在方块或流体里 + 生成时的颜色，渲染器按 age 收缩并据此分趟绘制 */
+    public record TrailBead(Vec3 pos, long bornAt, boolean inside, Vec3 color) {
+    }
 
     /** 客户端尾迹采样，仅 stage 0 追加，进入爆炸后停止追加以便自然淡出 */
     private final Deque<TrailBead> trail = new ArrayDeque<>();
@@ -175,8 +181,9 @@ public class MagicMissile extends Projectile {
         return trail;
     }
 
-    /** 爆炸光点：随机落点 + 初始半宽 + 收缩时长（正比于大小）+ 生成时是否埋在方块或流体里 + 生成时的 tick 计数 */
-    public record ExplodeBead(Vec3 pos, float size, float life, boolean inside, long bornAt) {}
+    /** 爆炸光点：随机落点 + 初始半宽 + 收缩时长（正比于大小）+ 生成时是否埋在方块或流体里 + 生成时的颜色 + 生成时的 tick 计数 */
+    public record ExplodeBead(Vec3 pos, float size, float life, boolean inside, Vec3 color, long bornAt) {
+    }
 
     /** 客户端爆炸光点，爆炸瞬间一次性铺开，之后只按 age 收缩淡出 */
     private final List<ExplodeBead> explosion = new ArrayList<>();
@@ -209,6 +216,8 @@ public class MagicMissile extends Projectile {
         // 起点切线取上段速度方向、终点切线取当前速度方向
         var steps = (int) Math.ceil(to.distanceTo(from) / TRAIL_STEP);
         var bornAt = level.getGameTime();
+        // 颜色此刻定死，锁定状态之后翻转也不会回头改动已生成的这段尾迹
+        var color = isLocked() ? COLOR_LOCKED : COLOR_FREE;
         int boundary = -1;
         if (inside != wasInside) {
             // 从外侧那端朝内侧打射线，命中点即遮挡体表面
@@ -229,7 +238,7 @@ public class MagicMissile extends Projectile {
         }
         for (var i = 0; i < steps; i++) {
             var pos = MathUtils.hermite(from, fromVel, to, toVel, (float) i / steps);
-            trail.add(new TrailBead(pos, bornAt, (boundary < 0 || i >= boundary) ? inside : !inside));
+            trail.add(new TrailBead(pos, bornAt, (boundary < 0 || i >= boundary) ? inside : !inside, color));
         }
     }
 
@@ -260,7 +269,7 @@ public class MagicMissile extends Projectile {
                 }
                 setDeltaMovement(vel);
                 move(MoverType.SELF, vel);
-                if (!level.isClientSide && tickCount >= FLY_TICKS) {
+                if (!level.isClientSide && tickCount >= PREWARM_TICKS) {
                     setStage(0);
                 }
             }
@@ -288,16 +297,24 @@ public class MagicMissile extends Projectile {
                     if (targetEntity == null) {
                         targetEntity = resolveTargetByUuid();
                     }
-                    if (targetEntity != null && (targetEntity.isRemoved() || targetEntity.level() != level)) {
-                        explode();
-                        return;
+                    if (targetEntity != null && (targetEntity.isRemoved() || targetEntity.level() != level
+                            || (targetSelector != null && !targetSelector.test(targetEntity)))) {
+                        // 先在周围就近改锁到另一个符合 targetSelector 的目标，实在没有才脱锁
+                        var replacement = findRelockTarget();
+                        if (replacement != null) {
+                            setTargetEntity(replacement);
+                        } else {
+                            // 脱锁：不就地爆炸，改为沿当前速度方向外推一段作为新的目标点，继续飞行
+                            setTargetEntity(null);
+                            setTargetPos(myPos.add(getDeltaMovement().scale(TARGET_LOST_LOOKAHEAD)));
+                        }
                     }
                     if (myPos.distanceTo(targetPos) > MAX_TARGET_DISTANCE) {
                         explode();
                         return;
                     }
                     if (targetEntity != null) {
-                        getEntityData().set(DATA_TARGET_ENTITY_ID, targetEntity.getId());
+                        entityData.set(DATA_TARGET_ENTITY_ID, targetEntity.getId());
                     }
                 }
 
@@ -384,6 +401,7 @@ public class MagicMissile extends Projectile {
     private void spawnExplosionBeads() {
         AABB box = explodeBox();
         var bornAt = level.getGameTime();
+        var color = isLocked() ? COLOR_LOCKED : COLOR_FREE;
         var random = level.random;
         for (int i = 0; i < 30; i++) {
             var pos = new Vec3(
@@ -391,11 +409,11 @@ public class MagicMissile extends Projectile {
                     box.minY + box.getYsize() * random.nextDouble(),
                     box.minZ + box.getZsize() * random.nextDouble());
             var size = EXPLODE_SIZE_MIN + (float) Math.random() * (EXPLODE_SIZE_MAX - EXPLODE_SIZE_MIN);
-            explosion.add(new ExplodeBead(pos, size, EXPLODE_LIFETIME * size / EXPLODE_SIZE_MAX, isInside(pos), bornAt));
+            explosion.add(new ExplodeBead(pos, size, EXPLODE_LIFETIME * size / EXPLODE_SIZE_MAX, isInside(pos), color, bornAt));
         }
         var eye = getEyePosition();
         // 爆心再压一个大光点
-        explosion.add(new ExplodeBead(eye, EXPLODE_FLASH_SIZE, EXPLODE_FLASH_LIFETIME, isInside(eye), bornAt));
+        explosion.add(new ExplodeBead(eye, EXPLODE_FLASH_SIZE, EXPLODE_FLASH_LIFETIME, isInside(eye), color, bornAt));
         Minecraft.getInstance().particleEngine.createParticle(ParticleTypes.EXPLOSION, eye.x, eye.y, eye.z, 0.0, 0.0, 0.0);
     }
 
@@ -412,17 +430,35 @@ public class MagicMissile extends Projectile {
         level.playSound(null, pos.x, pos.y, pos.z, SoundEvents.AMETHYST_CLUSTER_BREAK, SoundSource.BLOCKS, 4.0F, (1.0F + (level.random.nextFloat() - level.random.nextFloat()) * 0.2F) * 0.7F);
         AABB area = explodeBox();
         var source = level.damageSources().source(YCDamageTypes.MAGIC_MISSILE.getKey(), this, getOwner());
+        float totalHurt = 0;
         for (var e : level.getEntitiesOfClass(Entity.class, area, this::canHitEntity)) {
-            e.hurt(source, getDamage());
+            if (e instanceof LivingEntity living) {
+                var oldHealth = living.getHealth();
+                e.hurt(source, getDamage());
+                var delta = oldHealth - living.getHealth();
+                totalHurt += delta;
+            } else e.hurt(source, getDamage());
+        }
+        if (getOwner() instanceof ServerPlayer player) {
+            // looting
+            var center = player.getBoundingBox().getCenter();
+            for (var loot : level.getEntitiesOfClass(Entity.class, area, MagicMissile::isLoot)) {
+                loot.teleportTo(center.x, center.y, center.z);
+                loot.addDeltaMovement(player.getDeltaMovement());
+            }
+            // absorption
+            player.setAbsorptionAmount(player.getAbsorptionAmount() + totalHurt);
         }
     }
 
-    /** 爆炸影响范围：以碰撞盒为中心向外扩大到 EXPLODE_BOX 格边长 */
+    /** 是否属于不计伤害、只受传送处理的东西：掉落物与经验球 */
+    private static boolean isLoot(Entity e) {
+        return e instanceof ItemEntity || e instanceof ExperienceOrb;
+    }
+
+    /** 爆炸影响范围：碰撞盒向外扩 EXPLODE_BOX */
     private AABB explodeBox() {
-        return getBoundingBox().inflate(
-                (EXPLODE_BOX - getBbWidth()) / 2.0,
-                (EXPLODE_BOX - getBbHeight()) / 2.0,
-                (EXPLODE_BOX - getBbWidth()) / 2.0);
+        return getBoundingBox().inflate(EXPLODE_BOX);
     }
 
     /** 是否已进入 explode 阶段（供渲染器判断不再渲染模型） */
@@ -437,7 +473,7 @@ public class MagicMissile extends Projectile {
 
     /** 是否锁定目标实体（客户端依据同步的实体 id 判断） */
     public boolean isLocked() {
-        return targetEntity != null || getEntityData().get(DATA_TARGET_ENTITY_ID) != 0;
+        return targetEntity != null || entityData.get(DATA_TARGET_ENTITY_ID) != 0;
     }
 
     /**
@@ -451,34 +487,34 @@ public class MagicMissile extends Projectile {
 
     @Override
     protected boolean canHitEntity(Entity target) {
-        if (target instanceof ItemEntity || target instanceof ExperienceOrb) return false;
+        if (isLoot(target)) return false;
         var owner = getOwner();
         if (target instanceof Projectile other) return !Objects.equals(owner, other.getOwner());
         return !Objects.equals(owner, target);
     }
 
     public void setStage(int s) {
-        getEntityData().set(DATA_STAGE, s);
+        entityData.set(DATA_STAGE, s);
     }
 
     public int getStage() {
-        return getEntityData().get(DATA_STAGE);
+        return entityData.get(DATA_STAGE);
     }
 
     public void setTargetPos(Vec3 pos) {
         targetPos = pos;
-        getEntityData().set(DATA_TARGET_POS, new Vector3f((float) pos.x, (float) pos.y, (float) pos.z));
+        entityData.set(DATA_TARGET_POS, new Vector3f((float) pos.x, (float) pos.y, (float) pos.z));
     }
 
     public Vec3 getTargetPos() {
-        Vector3f pos = getEntityData().get(DATA_TARGET_POS);
+        Vector3f pos = entityData.get(DATA_TARGET_POS);
         return new Vec3(pos.x, pos.y, pos.z);
     }
 
     public void setTargetEntity(@Nullable Entity target) {
         targetEntity = target;
         targetUuid = target == null ? null : target.getUUID();
-        getEntityData().set(DATA_TARGET_ENTITY_ID, target == null ? 0 : target.getId());
+        entityData.set(DATA_TARGET_ENTITY_ID, target == null ? 0 : target.getId());
     }
 
     @Nullable
@@ -491,33 +527,51 @@ public class MagicMissile extends Projectile {
 
     @Nullable
     public Entity resolveTargetById() {
-        int id = getEntityData().get(DATA_TARGET_ENTITY_ID);
+        int id = entityData.get(DATA_TARGET_ENTITY_ID);
         return id == 0 ? null : level.getEntity(id);
     }
 
+    /** 在自身周围 RELOCK_RANGE 格内搜离得最近的一个符合 targetSelector 的实体；无选择器或无候选时返回 null */
+    @Nullable
+    private Entity findRelockTarget() {
+        if (targetSelector == null) return null;
+        var myPos = getEyePosition();
+        AABB area = getBoundingBox().inflate(RELOCK_RANGE);
+        Entity nearest = null;
+        double nearestDist = Double.MAX_VALUE;
+        for (var e : level.getEntitiesOfClass(Entity.class, area, targetSelector)) {
+            var dist = e.getBoundingBox().getCenter().distanceToSqr(myPos);
+            if (dist < nearestDist) {
+                nearestDist = dist;
+                nearest = e;
+            }
+        }
+        return nearest;
+    }
+
     public void setDamage(float damage) {
-        getEntityData().set(DATA_DAMAGE, damage);
+        entityData.set(DATA_DAMAGE, damage);
     }
 
     public float getDamage() {
-        return getEntityData().get(DATA_DAMAGE);
+        return entityData.get(DATA_DAMAGE);
     }
 
     public void setTrackRate(float rate) {
         trackRate = rate;
-        getEntityData().set(DATA_TRACK_RATE, rate);
+        entityData.set(DATA_TRACK_RATE, rate);
     }
 
     public void setMaxSpeed(double speed) {
         maxSpeed = speed;
-        getEntityData().set(DATA_MAX_SPEED, (float) speed);
+        entityData.set(DATA_MAX_SPEED, (float) speed);
     }
 
     public float getTrackRate() {
-        return getEntityData().get(DATA_TRACK_RATE);
+        return entityData.get(DATA_TRACK_RATE);
     }
 
     public double getMaxSpeed() {
-        return getEntityData().get(DATA_MAX_SPEED);
+        return entityData.get(DATA_MAX_SPEED);
     }
 }

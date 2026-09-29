@@ -127,7 +127,6 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
     private void renderBeads(MagicMissile entity, float partialTick, PoseStack pose, MultiBufferSource buffer,
                              boolean inside) {
         Vec3 origin = entity.getPosition(partialTick);
-        Vec3 color = entity.isLocked() ? MagicMissile.COLOR_LOCKED : MagicMissile.COLOR_FREE;
         float now = entity.level().getGameTime() + partialTick;
         // 相机朝向即珠子朝向：pose 只含平移，珠子在相机空间取 ±x/±y 后再转到世界空间
         Quaternionf cameraRot = Minecraft.getInstance().gameRenderer.getMainCamera().rotation();
@@ -139,12 +138,13 @@ public class MagicMissileRenderer extends EntityRenderer<MagicMissile> {
             float life = MagicMissile.TRAIL_LIFETIME;
             float age = now - bead.bornAt();
             if (bead.inside() != inside || age >= life) continue;
-            emitBead(consumer, pose, bead.pos().subtract(origin), right, up, MagicMissile.TRAIL_SIZE * (1 - age / life), color);
+            // 珠色取自生成那一刻，锁定状态翻转只影响其后新生成的珠子
+            emitBead(consumer, pose, bead.pos().subtract(origin), right, up, MagicMissile.TRAIL_SIZE * (1 - age / life), bead.color());
         }
         for (var bead : entity.getExplosion()) {
             float age = now - bead.bornAt();
             if (bead.inside() != inside || age >= bead.life()) continue;
-            emitBead(consumer, pose, bead.pos().subtract(origin), right, up, bead.size() * (1 - age / bead.life()), color);
+            emitBead(consumer, pose, bead.pos().subtract(origin), right, up, bead.size() * (1 - age / bead.life()), bead.color());
         }
     }
 

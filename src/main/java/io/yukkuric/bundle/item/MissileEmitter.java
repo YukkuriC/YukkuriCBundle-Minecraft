@@ -1,29 +1,47 @@
 package io.yukkuric.bundle.item;
 
+import io.yukkuric.bundle.YukkuriCBundleMod;
 import io.yukkuric.bundle.entity.MagicMissile;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.ai.attributes.*;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.UseAnim;
+import net.minecraft.world.item.*;
+import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.*;
+import net.neoforged.neoforge.common.NeoForgeMod;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.function.BiConsumer;
 
-public class MissileEmitter extends Item {
+public class MissileEmitter extends ArmorItem {
     public static final String ID = "missile_emitter";
+    public static final ResourceLocation IDLoc = YukkuriCBundleMod.modLoc(ID);
+    public static final ItemAttributeModifiers EXTRA_ATTRS;
+    public static final Properties PROPS = new Properties()
+            .stacksTo(1).rarity(Rarity.EPIC);
+    static {
+        var attrBuilder = ItemAttributeModifiers.builder();
+        BiConsumer<Holder<Attribute>, Float> addAttr = (attr, addVal) -> {
+            attrBuilder.add(attr, new AttributeModifier(IDLoc, addVal, AttributeModifier.Operation.ADD_VALUE), EquipmentSlotGroup.ANY);
+        };
+        addAttr.accept(NeoForgeMod.CREATIVE_FLIGHT, 1f);
+        addAttr.accept(Attributes.FLYING_SPEED, 2f);
+        addAttr.accept(Attributes.MAX_ABSORPTION, 100f);
+        EXTRA_ATTRS = attrBuilder.build();
+    }
+    public final ItemAttributeModifiers MERGED_ATTRS;
 
     private static final int MISSILE_COUNT = 5;
     private static final int CLOSE_TARGET_COUNT = 2;
@@ -47,7 +65,16 @@ public class MissileEmitter extends Item {
     private static final int FIRE_INTERVAL = 5;
 
     public MissileEmitter(Properties properties) {
-        super(properties);
+        super(ArmorMaterials.NETHERITE, Type.HELMET, properties);
+        // merge attrs
+        var list = new ArrayList<>(super.getDefaultAttributeModifiers().modifiers());
+        list.addAll(EXTRA_ATTRS.modifiers());
+        MERGED_ATTRS = new ItemAttributeModifiers(Collections.unmodifiableList(list), true);
+    }
+
+    @Override
+    public ItemAttributeModifiers getDefaultAttributeModifiers() {
+        return MERGED_ATTRS;
     }
 
     @Override
@@ -88,9 +115,8 @@ public class MissileEmitter extends Item {
             for (int i = 0; i < CLOSE_TARGET_COUNT; i++) {
                 fireAtEntity(level, spawnPos, nearest, look, player);
             }
-            List<Entity> pool = new ArrayList<>(targets);
             for (int i = 0; i < RANDOM_TARGET_COUNT; i++) {
-                fireAtEntity(level, spawnPos, pool.get(random.nextInt(pool.size())), look, player);
+                fireAtEntity(level, spawnPos, targets.get(random.nextInt(targets.size())), look, player);
             }
             int pointCount = MISSILE_COUNT - CLOSE_TARGET_COUNT - RANDOM_TARGET_COUNT;
             for (int i = 0; i < pointCount; i++) {
@@ -114,13 +140,17 @@ public class MissileEmitter extends Item {
     private void fireAtEntity(Level level, Vec3 spawnPos, Entity target, Vec3 look, @Nullable Entity owner) {
         var missile = new MagicMissile(level, spawnPos, launchVelocity(level.random, look), target, MISSILE_DAMAGE, owner);
         missile.setMaxSpeed(3);
+        missile.tickCount += (int) (Math.random() * MagicMissile.PREWARM_TICKS);
+        missile.targetSelector = this::isTarget;
         level.addFreshEntity(missile);
     }
 
     /** 打向 anchor 周围 AABB_RADIUS 格立方体内随机点发射一颗魔法弹 */
     private void fireAtRandomPoint(Level level, Vec3 spawnPos, Vec3 anchor, Vec3 look, @Nullable Entity owner) {
         Vec3 target = randomPointInBox(level.random, anchor);
-        level.addFreshEntity(new MagicMissile(level, spawnPos, launchVelocity(level.random, look), target, MISSILE_DAMAGE, owner));
+        var missile = new MagicMissile(level, spawnPos, launchVelocity(level.random, look), target, MISSILE_DAMAGE, owner);
+        missile.tickCount += (int) (Math.random() * MagicMissile.PREWARM_TICKS);
+        level.addFreshEntity(missile);
     }
 
     /** 向前抛出：视线方向分量叠加一行随机球面方向的偏移 */
