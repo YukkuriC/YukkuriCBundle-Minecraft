@@ -151,7 +151,7 @@ public class MissileEmitter extends ArmorItem {
     /** 打向指定目标实体发射一颗魔法弹 */
     private void fireAtEntity(Level level, Vec3 spawnPos, Entity target, Vec3 look, @Nullable Entity owner) {
         var missile = new MagicMissile(level, spawnPos, launchVelocity(level.random, look), target, MISSILE_DAMAGE, owner);
-        missile.setMaxSpeed(3);
+        missile.setMaxSpeed(MagicMissile.DEF_MAX_SPEED_LOCKED);
         missile.tickCount += (int) (Math.random() * MagicMissile.PREWARM_TICKS);
         missile.targetSelector = this::isTarget;
         level.addFreshEntity(missile);

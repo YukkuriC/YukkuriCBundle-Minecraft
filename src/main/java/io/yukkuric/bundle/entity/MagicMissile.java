@@ -50,18 +50,29 @@ public class MagicMissile extends Projectile {
     private static final float DEF_TRACK_RATE = 0.05F;
     private static final float TRACK_RATE_INC = 0.01F;
     private static final float TRACK_RATE_MAX = 0.5F;
-    private static final double DEF_MAX_SPEED = 2;
+    public static final double DEF_MAX_SPEED = 2;
+    public static final double DEF_MAX_SPEED_LOCKED = 3;
+    /** 锁定档相对未锁定档的最大速度倍率，用于目标失效时的速度档切换 */
+    private static final double LOCK_SPEED_RATIO = DEF_MAX_SPEED_LOCKED / DEF_MAX_SPEED;
+    /** 击杀连锁弹初速占未锁定档默认速度的比例范围 */
+    private static final double KILL_LAUNCH_SPEED_MIN = 0.2;
+    private static final double KILL_LAUNCH_SPEED_MAX = 0.5;
+    /** 击杀连锁弹初速上叠加的随机散射比例上限（相对未锁定档默认速度） */
+    private static final double KILL_SCATTER_MAX = 0.2;
     /** 初始飞出阶段的每 tick 速度衰减系数 */
     private static final double FLY_DECAY = 0.99;
+    /** stage 0 起步阶段跳过方块碰撞检测的 tick 数 */
+    private static final int STAGE0_SKIP_BLOCK_TICKS = 3;
     /** 初始飞出阶段持续的 tick 数，之后进入追踪阶段 */
     public static final int PREWARM_TICKS = 20;
     private static final float MAX_TRAIL_DIST = 200;
     private static final float TRAIL_STEP = 0.1f;
 
-    /** 锁定目标失效后，按当前速度外推的 tick 数，所得位置作为新的目标点 */
-    private static final int TARGET_LOST_LOOKAHEAD = 20;
-    /** 锁定目标失效后，重新搜索可锁定目标的范围 */
-    private static final double RELOCK_RANGE = 16;
+    /** 目标失效后按当前速度外推的 tick 数范围，所得位置作为新的目标点 */
+    private static final int TARGET_LOST_LOOKAHEAD_MIN = 20;
+    private static final int TARGET_LOST_LOOKAHEAD_MAX = 40;
+    /** 重新搜索可锁定目标的范围 */
+    private static final double RELOCK_RANGE = 32;
 
     /** 距目标点不足该距离（格）首次触发计时 */
     private static final double FUSE_RANGE = 1.0;
@@ -306,7 +317,9 @@ public class MagicMissile extends Projectile {
                         } else {
                             // 脱锁：不就地爆炸，改为沿当前速度方向外推一段作为新的目标点，继续飞行
                             setTargetEntity(null);
-                            setTargetPos(myPos.add(getDeltaMovement().scale(TARGET_LOST_LOOKAHEAD)));
+                            setTargetPos(flybyTarget(level, myPos, getDeltaMovement()));
+                            // 按锁定档与未锁定档的比值切换最大速度
+                            setMaxSpeed(maxSpeed / LOCK_SPEED_RATIO);
                         }
                     }
                     if (myPos.distanceTo(targetPos) > MAX_TARGET_DISTANCE) {
@@ -359,12 +372,15 @@ public class MagicMissile extends Projectile {
                     explode();
                     return;
                 }
-                var blockHit = level.clip(new ClipContext(start, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
-                if (blockHit.getType() != HitResult.Type.MISS) {
-                    var target = blockHit.getLocation();
-                    setPos(target.x, target.y - getEyeHeight(), target.z);
-                    explode();
-                    return;
+                // 起步阶段不检查方块碰撞，避免刚生成的弹贴脸自爆
+                if (tickCount >= STAGE0_SKIP_BLOCK_TICKS) {
+                    var blockHit = level.clip(new ClipContext(start, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
+                    if (blockHit.getType() != HitResult.Type.MISS) {
+                        var target = blockHit.getLocation();
+                        setPos(target.x, target.y - getEyeHeight(), target.z);
+                        explode();
+                        return;
+                    }
                 }
 
                 // move if no hit
@@ -435,8 +451,10 @@ public class MagicMissile extends Projectile {
             if (e instanceof LivingEntity living) {
                 var oldHealth = living.getHealth();
                 e.hurt(source, getDamage());
-                var delta = oldHealth - living.getHealth();
+                var newHealth = living.getHealth();
+                var delta = oldHealth - newHealth;
                 totalHurt += delta;
+                if (oldHealth > 0 && newHealth <= 0) spawnKillMissile(e.getBoundingBox().getCenter());
             } else e.hurt(source, getDamage());
         }
         if (getOwner() instanceof ServerPlayer player) {
@@ -449,6 +467,24 @@ public class MagicMissile extends Projectile {
             // absorption
             player.setAbsorptionAmount(player.getAbsorptionAmount() + totalHurt);
         }
+    }
+
+    /** 击杀目标瞬间，从当前位置向上发射一颗继承属性的新弹：伤害翻倍，最大速度取对应锁定状态的默认值 */
+    private void spawnKillMissile(Vec3 pos) {
+        var random = level.random;
+        // 初速统一按未锁定档默认速度折算：竖直向上占一部分，再叠加一层随机方向的散量
+        var upward = DEF_MAX_SPEED * (KILL_LAUNCH_SPEED_MIN + random.nextDouble() * (KILL_LAUNCH_SPEED_MAX - KILL_LAUNCH_SPEED_MIN));
+        var scatter = DEF_MAX_SPEED * KILL_SCATTER_MAX * random.nextDouble();
+        var dir = new Vec3(random.nextDouble() - 0.5, random.nextDouble() - 0.5, random.nextDouble() - 0.5).normalize();
+        var vel = new Vec3(0, upward, 0).add(dir.scale(scatter));
+        Entity newTarget = targetSelector == null ? null
+                : findNearestTarget(level, pos, AABB.ofSize(pos, RELOCK_RANGE * 2, RELOCK_RANGE * 2, RELOCK_RANGE * 2), targetSelector);
+        var newTargetPos = newTarget == null ? flybyTarget(level, pos, vel) : newTarget.getBoundingBox().getCenter();
+        var missile = new MagicMissile(level, pos, vel, newTargetPos, getDamage() * 2, newTarget, getOwner());
+        missile.setMaxSpeed(newTarget == null ? DEF_MAX_SPEED : DEF_MAX_SPEED_LOCKED);
+        missile.targetSelector = targetSelector;
+        missile.setStage(0);
+        level.addFreshEntity(missile);
     }
 
     /** 是否属于不计伤害、只受传送处理的东西：掉落物与经验球 */
@@ -488,6 +524,9 @@ public class MagicMissile extends Projectile {
     @Override
     protected boolean canHitEntity(Entity target) {
         if (isLoot(target)) return false;
+        if (target instanceof LivingEntity living) {
+            if (living.isDeadOrDying()) return false;
+        }
         var owner = getOwner();
         if (target instanceof Projectile other) return !Objects.equals(owner, other.getOwner());
         return !Objects.equals(owner, target);
@@ -535,12 +574,22 @@ public class MagicMissile extends Projectile {
     @Nullable
     private Entity findRelockTarget() {
         if (targetSelector == null) return null;
-        var myPos = getEyePosition();
-        AABB area = getBoundingBox().inflate(RELOCK_RANGE);
+        return findNearestTarget(level, getEyePosition(), getBoundingBox().inflate(RELOCK_RANGE), targetSelector);
+    }
+
+    /** 目标失效时的外推落点：当前位置沿当前速度外推一段随机 tick 数 */
+    private static Vec3 flybyTarget(Level level, Vec3 pos, Vec3 vel) {
+        var ticks = TARGET_LOST_LOOKAHEAD_MIN + level.random.nextInt(TARGET_LOST_LOOKAHEAD_MAX - TARGET_LOST_LOOKAHEAD_MIN + 1);
+        return pos.add(vel.scale(ticks));
+    }
+
+    /** 在给定范围内搜离 from 最近的一个符合 selector 的实体；无候选时返回 null */
+    @Nullable
+    private static Entity findNearestTarget(Level level, Vec3 from, AABB area, Predicate<Entity> selector) {
         Entity nearest = null;
         double nearestDist = Double.MAX_VALUE;
-        for (var e : level.getEntitiesOfClass(Entity.class, area, targetSelector)) {
-            var dist = e.getBoundingBox().getCenter().distanceToSqr(myPos);
+        for (var e : level.getEntitiesOfClass(Entity.class, area, selector)) {
+            var dist = e.getBoundingBox().getCenter().distanceToSqr(from);
             if (dist < nearestDist) {
                 nearestDist = dist;
                 nearest = e;
