@@ -4,6 +4,9 @@ import io.yukkuric.bundle.YukkuriCBundleMod;
 import io.yukkuric.bundle.entity.MagicMissile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -125,6 +128,15 @@ public class MissileEmitter extends ArmorItem {
         }
     }
 
+    /** 头盔槽为此物品时发射一批导弹 */
+    public static void fireIfEquipped(Player player) {
+        if (player.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof MissileEmitter emitter) {
+            emitter.fireBatch(player.level(), player);
+        } else if (player.getMainHandItem().getItem() instanceof MissileEmitter emitter) {
+            emitter.fireBatch(player.level(), player);
+        }
+    }
+
     /** 使用中不播放抬起/挥动动画，物品保持在手中原姿态 */
     @Override
     public UseAnim getUseAnimation(ItemStack stack) {
@@ -224,5 +236,16 @@ public class MissileEmitter extends ArmorItem {
 
     private Vec3 randomDirection(RandomSource random) {
         return new Vec3(random.nextDouble() - 0.5, random.nextDouble() - 0.5, random.nextDouble() - 0.5).normalize();
+    }
+
+    /** 左键输入只发生在客户端，需由玩家自行通知服务端发射 */
+    public record FirePayload() implements CustomPacketPayload {
+        public static final Type<FirePayload> TYPE = new Type<>(YukkuriCBundleMod.modLoc(ID + "_fire"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, FirePayload> STREAM_CODEC = StreamCodec.unit(new FirePayload());
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
     }
 }

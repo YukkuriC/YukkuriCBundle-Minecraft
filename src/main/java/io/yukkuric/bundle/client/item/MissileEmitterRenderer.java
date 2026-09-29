@@ -8,16 +8,19 @@ import io.yukkuric.bundle.client.entity.MagicMissileRenderer;
 import io.yukkuric.bundle.entity.MagicMissile;
 import io.yukkuric.bundle.item.YCItems;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.EntityModelSet;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.entity.RenderLayerParent;
+import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.client.renderer.texture.*;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -52,17 +55,22 @@ public class MissileEmitterRenderer extends BlockEntityWithoutLevelRenderer {
         boolean using = minecraft.player != null
                 && minecraft.player.isUsingItem()
                 && minecraft.player.getUseItem().is(YCItems.MISSILE_EMITTER.get());
-        float angle = ticks / (using ? USING_ORBIT_TICKS : IDLE_ORBIT_TICKS) * 360F;
+        pose.pushPose();
+        // 几何以原点为中心，这里把中心挪到 (0.5,0.5,0.5)，与常规物品模型的空间一致（渲染管线会先平移 -0.5）
+        pose.translate(0.5F, 0.5F, 0.5F);
+        renderModel(buffer, pose, light, orbitAngle(using, ticks));
+        pose.popPose();
+    }
 
+    /** 以 pose 原点为中心绘制整机 */
+    public static void renderModel(MultiBufferSource buffer, PoseStack pose, int light, float angle) {
         // 不透明部分用 entity 渲染类型，由 shader 按法线给出面间明暗，并随传入光照变亮变暗
         VertexConsumer solid = buffer.getBuffer(RenderType.entitySolid(TextureAtlas.LOCATION_BLOCKS));
         VertexConsumer glow = buffer.getBuffer(MagicMissileRenderer.OUTER_TYPE);
 
-        pose.pushPose();
-        // 几何以原点为中心，这里把中心挪到 (0.5,0.5,0.5)，与常规物品模型的空间一致（渲染管线会先平移 -0.5）
-        pose.translate(0.5F, 0.5F, 0.5F);
         draw(MODEL_CUBE, solid, pose, light, 1F, 1F, 1F, 1F);
 
+        pose.pushPose();
         pose.mulPose(Axis.YP.rotationDegrees(angle));
         for (int i = 0; i < 2; i++) {
             Vec3 color = i == 0 ? MagicMissile.COLOR_LOCKED : MagicMissile.COLOR_FREE;
@@ -87,6 +95,35 @@ public class MissileEmitterRenderer extends BlockEntityWithoutLevelRenderer {
             pose.popPose();
         }
         pose.popPose();
+    }
+
+    /** 环绕轨道角度，由待机/使用状态决定转速 */
+    public static float orbitAngle(boolean using, float ticks) {
+        return ticks / (using ? USING_ORBIT_TICKS : IDLE_ORBIT_TICKS) * 360F;
+    }
+
+    /** 头盔槽装备时替换玩家头部：把整机画到头部中心 */
+    public static class HeadLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
+        public HeadLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
+            super(parent);
+        }
+
+        @Override
+        public void render(PoseStack pose, MultiBufferSource buffer, int light, AbstractClientPlayer player,
+                           float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
+                           float netHeadYaw, float headPitch) {
+            if (!player.getItemBySlot(EquipmentSlot.HEAD).is(YCItems.MISSILE_EMITTER.get())) return;
+            boolean using = player.isUsingItem() && player.getUseItem().is(YCItems.MISSILE_EMITTER.get());
+            float ticks = player.level().getGameTime() + partialTick;
+
+            pose.pushPose();
+            getParentModel().head.translateAndRotate(pose);
+            // 头部立方体中心位于头部枢轴下方
+            pose.translate(0F, -0.25F, 0F);
+            pose.scale(2, 2, 2);
+            renderModel(buffer, pose, light, orbitAngle(using, ticks));
+            pose.popPose();
+        }
     }
 
     private static void draw(BakedModel model, VertexConsumer consumer, PoseStack pose, int light, float r, float g, float b, float alpha) {
