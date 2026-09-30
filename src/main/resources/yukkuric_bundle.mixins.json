@@ -4,6 +4,7 @@
   "package": "io.yukkuric.bundle.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "MixinExpOrb"
   ],
   "client": [
   ],

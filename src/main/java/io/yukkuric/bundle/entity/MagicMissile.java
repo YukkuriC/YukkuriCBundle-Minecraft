@@ -1,6 +1,7 @@
 package io.yukkuric.bundle.entity;
 
 import io.yukkuric.bundle.damage.YCDamageTypes;
+import io.yukkuric.bundle.mixin_interface.IExpOrbEx;
 import io.yukkuric.bundle.utils.MathUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -460,12 +461,27 @@ public class MagicMissile extends Projectile {
         if (getOwner() instanceof ServerPlayer player) {
             // looting
             var center = player.getBoundingBox().getCenter();
+            var vel = player.getDeltaMovement();
+            int totalExp = 0;
             for (var loot : level.getEntitiesOfClass(Entity.class, area, MagicMissile::isLoot)) {
+                if (loot instanceof IExpOrbEx orb) {
+                    totalExp += orb.getTotalExp();
+                    loot.discard();
+                    continue;
+                }
                 loot.teleportTo(center.x, center.y, center.z);
-                loot.addDeltaMovement(player.getDeltaMovement());
+                loot.addDeltaMovement(vel);
             }
             // absorption
             player.setAbsorptionAmount(player.getAbsorptionAmount() + totalHurt);
+            // dump exp
+            while (totalExp > 0) {
+                var step = Math.min(32767, totalExp);
+                var orb = new ExperienceOrb(level, center.x, center.y, center.z, step);
+                orb.addDeltaMovement(vel);
+                level.addFreshEntity(orb);
+                totalExp -= step;
+            }
         }
     }
 
