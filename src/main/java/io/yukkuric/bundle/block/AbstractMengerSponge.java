@@ -18,6 +18,7 @@ public abstract class AbstractMengerSponge<T extends BlockEntity> extends Block 
                         .noOcclusion()
                         .pushReaction(PushReaction.BLOCK)
                         .sound(SoundType.SPONGE)
+                        .destroyTime(0.6f)
                         .explosionResistance(114514)
         );
     }

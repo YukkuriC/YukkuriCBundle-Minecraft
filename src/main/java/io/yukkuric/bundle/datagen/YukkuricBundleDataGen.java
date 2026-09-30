@@ -3,9 +3,14 @@ package io.yukkuric.bundle.datagen;
 import io.yukkuric.bundle.YukkuriCBundleMod;
 import io.yukkuric.bundle.datagen.damage.YCDamageTypeTags;
 import io.yukkuric.bundle.datagen.menger_sponge.*;
+import net.minecraft.data.loot.LootTableProvider;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.data.event.GatherDataEvent;
+
+import java.util.List;
+import java.util.Set;
 
 @EventBusSubscriber(modid = YukkuriCBundleMod.MOD_ID)
 public class YukkuricBundleDataGen {
@@ -24,6 +29,9 @@ public class YukkuricBundleDataGen {
         var blockTags = new MengerSpongeBlockTags(output, lookups, efh);
         gen.addProvider(event.includeServer(), blockTags);
         gen.addProvider(event.includeServer(), new MengerSpongeItemTags(output, lookups, blockTags.contentsGetter(), efh));
+        gen.addProvider(event.includeServer(), new LootTableProvider(output, Set.of(), List.of(
+                new LootTableProvider.SubProviderEntry(MengerSpongeLootTables::new, LootContextParamSets.BLOCK)
+        ), lookups));
 
         gen.addProvider(event.includeServer(), new YCDamageTypeTags(output, lookups, efh));
     }
