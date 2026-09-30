@@ -162,6 +162,7 @@ public class MissileEmitter extends ArmorItem {
         Vec3 target = randomPointInBox(level.random, anchor);
         var missile = new MagicMissile(level, spawnPos, launchVelocity(level.random, look), target, MISSILE_DAMAGE, owner);
         missile.tickCount += (int) (Math.random() * MagicMissile.PREWARM_TICKS);
+        missile.targetSelector = this::isTarget;
         level.addFreshEntity(missile);
     }
 

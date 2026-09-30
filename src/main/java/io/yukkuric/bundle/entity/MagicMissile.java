@@ -478,7 +478,7 @@ public class MagicMissile extends Projectile {
         var dir = new Vec3(random.nextDouble() - 0.5, random.nextDouble() - 0.5, random.nextDouble() - 0.5).normalize();
         var vel = new Vec3(0, upward, 0).add(dir.scale(scatter));
         Entity newTarget = targetSelector == null ? null
-                : findNearestTarget(level, pos, AABB.ofSize(pos, RELOCK_RANGE * 2, RELOCK_RANGE * 2, RELOCK_RANGE * 2), targetSelector);
+                : findRandomTargetWithin(level, pos, AABB.ofSize(pos, RELOCK_RANGE * 2, RELOCK_RANGE * 2, RELOCK_RANGE * 2), targetSelector);
         var newTargetPos = newTarget == null ? flybyTarget(level, pos, vel) : newTarget.getBoundingBox().getCenter();
         var missile = new MagicMissile(level, pos, vel, newTargetPos, getDamage() * 2, newTarget, getOwner());
         missile.setMaxSpeed(newTarget == null ? DEF_MAX_SPEED : DEF_MAX_SPEED_LOCKED);
@@ -596,6 +596,12 @@ public class MagicMissile extends Projectile {
             }
         }
         return nearest;
+    }
+    @Nullable
+    private static Entity findRandomTargetWithin(Level level, Vec3 from, AABB area, Predicate<Entity> selector) {
+        var pool = level.getEntitiesOfClass(Entity.class, area, selector);
+        if (pool.isEmpty()) return null;
+        return pool.get((int) (Math.random() * pool.size()));
     }
 
     public void setDamage(float damage) {
