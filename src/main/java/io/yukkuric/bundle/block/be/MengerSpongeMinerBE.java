@@ -7,6 +7,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -117,6 +118,9 @@ public class MengerSpongeMinerBE extends AbstractMengerSpongeDataBE {
         }
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            if (stack.getItem() instanceof BlockItem bi && bi.getBlock().defaultBlockState().is(TAG_ORES)) {
+                return ItemStack.EMPTY;
+            }
             if (slot < 0 || slot >= RAND_RANGE) return stack;
             return super.insertItem(slot, stack, simulate);
         }
