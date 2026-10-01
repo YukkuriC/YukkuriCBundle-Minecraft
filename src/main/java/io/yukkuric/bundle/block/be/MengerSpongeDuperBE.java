@@ -226,7 +226,7 @@ public class MengerSpongeDuperBE extends AbstractMengerSpongeDataBE {
                 be.energy += added;
                 be.syncAndSave();
             }
-            return added;
+            return added / 3;
         }
 
         @Override
