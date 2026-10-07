@@ -115,25 +115,46 @@ public class MissileEmitter extends ArmorItem {
         Vec3 look = player.getLookAngle();
         Vec3 anchor = resolveAnchor(level, player, look);
         RandomSource random = player.getRandom();
+        float damage = calcMissileDamage(player);
         List<Entity> targets = scanTargets(level, anchor);
         if (targets.isEmpty()) {
             // 无目标：全部打向 anchor 周围 AABB_RADIUS 内随机点
             for (int i = 0; i < MISSILE_COUNT; i++) {
-                fireAtRandomPoint(level, spawnPos, anchor, look, player);
+                fireAtRandomPoint(level, spawnPos, anchor, look, player, damage);
             }
         } else {
             Entity nearest = nearest(targets, anchor);
             for (int i = 0; i < CLOSE_TARGET_COUNT; i++) {
-                fireAtEntity(level, spawnPos, nearest, look, player);
+                fireAtEntity(level, spawnPos, nearest, look, player, damage);
             }
             for (int i = 0; i < RANDOM_TARGET_COUNT; i++) {
-                fireAtEntity(level, spawnPos, targets.get(random.nextInt(targets.size())), look, player);
+                fireAtEntity(level, spawnPos, targets.get(random.nextInt(targets.size())), look, player, damage);
             }
             int pointCount = MISSILE_COUNT - CLOSE_TARGET_COUNT - RANDOM_TARGET_COUNT;
             for (int i = 0; i < pointCount; i++) {
-                fireAtRandomPoint(level, spawnPos, anchor, look, player);
+                fireAtRandomPoint(level, spawnPos, anchor, look, player, damage);
             }
         }
+    }
+
+    /** 玩家的伤害属性修饰符减去主手物品自带的那些，剩下的按原版结算顺序作用到基础伤害上 */
+    private static float calcMissileDamage(Player player) {
+        AttributeInstance instance = player.getAttribute(Attributes.ATTACK_DAMAGE);
+        if (instance == null) return MISSILE_DAMAGE;
+        var weaponModifiers = new HashSet<AttributeModifier>();
+        player.getMainHandItem().forEachModifier(EquipmentSlot.MAINHAND, (attr, modifier) -> {
+            if (attr == Attributes.ATTACK_DAMAGE) weaponModifiers.add(modifier);
+        });
+        double added = 0, multipliedBase = 0, multipliedTotal = 1;
+        for (AttributeModifier modifier : instance.getModifiers()) {
+            if (weaponModifiers.contains(modifier)) continue;
+            switch (modifier.operation()) {
+                case ADD_VALUE -> added += modifier.amount();
+                case ADD_MULTIPLIED_BASE -> multipliedBase += modifier.amount();
+                case ADD_MULTIPLIED_TOTAL -> multipliedTotal *= 1 + modifier.amount();
+            }
+        }
+        return (float) ((MISSILE_DAMAGE + added + MISSILE_DAMAGE * multipliedBase) * multipliedTotal);
     }
 
     /** 头盔槽/主手/饰品槽为此物品时发射一批导弹 */
@@ -159,8 +180,8 @@ public class MissileEmitter extends ArmorItem {
     }
 
     /** 打向指定目标实体发射一颗魔法弹 */
-    private void fireAtEntity(Level level, Vec3 spawnPos, Entity target, Vec3 look, @Nullable Entity owner) {
-        var missile = new MagicMissile(level, spawnPos, launchVelocity(level.random, look), target, MISSILE_DAMAGE, owner);
+    private void fireAtEntity(Level level, Vec3 spawnPos, Entity target, Vec3 look, @Nullable Entity owner, float damage) {
+        var missile = new MagicMissile(level, spawnPos, launchVelocity(level.random, look), target, damage, owner);
         missile.setMaxSpeed(MagicMissile.DEF_MAX_SPEED_LOCKED);
         missile.tickCount += (int) (Math.random() * MagicMissile.PREWARM_TICKS);
         missile.targetSelector = this::isTarget;
@@ -168,9 +189,9 @@ public class MissileEmitter extends ArmorItem {
     }
 
     /** 打向 anchor 周围 AABB_RADIUS 格立方体内随机点发射一颗魔法弹 */
-    private void fireAtRandomPoint(Level level, Vec3 spawnPos, Vec3 anchor, Vec3 look, @Nullable Entity owner) {
+    private void fireAtRandomPoint(Level level, Vec3 spawnPos, Vec3 anchor, Vec3 look, @Nullable Entity owner, float damage) {
         Vec3 target = MathUtils.randomPointIn(AABB.ofSize(anchor, AABB_RADIUS * 2, AABB_RADIUS * 2, AABB_RADIUS * 2), level.random);
-        var missile = new MagicMissile(level, spawnPos, launchVelocity(level.random, look), target, MISSILE_DAMAGE, owner);
+        var missile = new MagicMissile(level, spawnPos, launchVelocity(level.random, look), target, damage, owner);
         missile.tickCount += (int) (Math.random() * MagicMissile.PREWARM_TICKS);
         missile.targetSelector = this::isTarget;
         level.addFreshEntity(missile);
@@ -269,7 +290,8 @@ public class MissileEmitter extends ArmorItem {
         @Override
         public Multimap<Holder<Attribute>, AttributeModifier> getAttributeModifiers(SlotContext slotContext, ResourceLocation id, ItemStack stack) {
             var modifiers = LinkedHashMultimap.<Holder<Attribute>, AttributeModifier>create();
-            for (var entry : YCItems.MISSILE_EMITTER.get().MERGED_ATTRS.modifiers()) modifiers.put(entry.attribute(), entry.modifier());
+            for (var entry : YCItems.MISSILE_EMITTER.get().MERGED_ATTRS.modifiers())
+                modifiers.put(entry.attribute(), entry.modifier());
             return modifiers;
         }
     }
