@@ -12,6 +12,7 @@ import io.yukkuric.bundle.entity.YCEntityTypes;
 import io.yukkuric.bundle.item.MissileEmitter;
 import io.yukkuric.bundle.item.YCItems;
 import io.yukkuric.bundle.particle.YCParticleTypes;
+import io.yukkuric.yclib.YCLib;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
@@ -29,6 +30,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.client.event.*;
 import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
@@ -38,6 +40,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import org.slf4j.Logger;
+import top.theillusivec4.curios.api.client.CuriosRendererRegistry;
 
 import static io.yukkuric.bundle.block.YCBlocks.MENGER_SPONGE_DUPER;
 
@@ -70,6 +73,11 @@ public class YukkuriCBundleMod {
         modEventBus.addListener((RegisterPayloadHandlersEvent event) -> event.registrar("1").playToServer(
                 MissileEmitter.FirePayload.TYPE, MissileEmitter.FirePayload.STREAM_CODEC,
                 (payload, context) -> MissileEmitter.fireIfEquipped(context.player())));
+
+        if (YCLib.modLoaded("curios")) {
+            // 饰品能力注册需在物品注册完成之后，故推迟到 common setup
+            modEventBus.addListener((FMLCommonSetupEvent event) -> event.enqueueWork(MissileEmitter::registerCurio));
+        }
     }
 
     @EventBusSubscriber(modid = MOD_ID, value = Dist.CLIENT)
@@ -104,6 +112,10 @@ public class YukkuriCBundleMod {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
             NeoForge.EVENT_BUS.addListener(MagicMissileRenderer::renderStage);
+            if (YCLib.modLoaded("curios")) {
+                // 必须早于 EntityRenderersEvent.AddLayers，否则 curios 读取不到渲染器
+                CuriosRendererRegistry.register(YCItems.MISSILE_EMITTER.get(), MissileEmitterRenderer.CurioRenderer::new);
+            }
         }
 
         /** 装备时玩家头部一并隐藏，由 HeadLayer 顶替；下一帧的 setModelProperties 会自行还原可见性 */
@@ -123,8 +135,9 @@ public class YukkuriCBundleMod {
             var player = minecraft.player;
             if (player == null) return;
 
-            // missile emitter head
-            if (player.getItemBySlot(EquipmentSlot.HEAD).is(YCItems.MISSILE_EMITTER.get())) {
+            // missile emitter head/curio
+            if (player.getItemBySlot(EquipmentSlot.HEAD).is(YCItems.MISSILE_EMITTER.get())
+                    || MissileEmitter.isEquippedAsCurio(player)) {
                 var isDigging = minecraft.hitResult instanceof BlockHitResult blockHit &&
                         !minecraft.level.getBlockState(blockHit.getBlockPos()).isAir();
                 if (isDigging && !player.isShiftKeyDown()) return;

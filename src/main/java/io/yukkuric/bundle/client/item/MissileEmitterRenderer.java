@@ -8,7 +8,7 @@ import io.yukkuric.bundle.client.entity.MagicMissileRenderer;
 import io.yukkuric.bundle.entity.MagicMissile;
 import io.yukkuric.bundle.item.YCItems;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.model.*;
 import net.minecraft.client.model.geom.EntityModelSet;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.*;
@@ -21,9 +21,12 @@ import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
+import top.theillusivec4.curios.api.SlotContext;
+import top.theillusivec4.curios.api.client.ICurioRenderer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -66,9 +69,14 @@ public class MissileEmitterRenderer extends BlockEntityWithoutLevelRenderer {
     public static void renderModel(MultiBufferSource buffer, PoseStack pose, int light, float angle) {
         // 不透明部分用 entity 渲染类型，由 shader 按法线给出面间明暗，并随传入光照变亮变暗
         VertexConsumer solid = buffer.getBuffer(RenderType.entitySolid(TextureAtlas.LOCATION_BLOCKS));
-        VertexConsumer glow = buffer.getBuffer(MagicMissileRenderer.OUTER_TYPE);
-
         draw(MODEL_CUBE, solid, pose, light, 1F, 1F, 1F, 1F);
+        renderOrbiters(buffer, pose, light, angle);
+    }
+
+    /** 以 pose 原点为中心，绘制绕主轴环绕的两个八面体 */
+    public static void renderOrbiters(MultiBufferSource buffer, PoseStack pose, int light, float angle) {
+        VertexConsumer solid = buffer.getBuffer(RenderType.entitySolid(TextureAtlas.LOCATION_BLOCKS));
+        VertexConsumer glow = buffer.getBuffer(MagicMissileRenderer.OUTER_TYPE);
 
         pose.pushPose();
         pose.mulPose(Axis.YP.rotationDegrees(angle));
@@ -113,7 +121,6 @@ public class MissileEmitterRenderer extends BlockEntityWithoutLevelRenderer {
                            float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks,
                            float netHeadYaw, float headPitch) {
             if (!player.getItemBySlot(EquipmentSlot.HEAD).is(YCItems.MISSILE_EMITTER.get())) return;
-            boolean using = player.isUsingItem() && player.getUseItem().is(YCItems.MISSILE_EMITTER.get());
             float ticks = player.level().getGameTime() + partialTick;
 
             pose.pushPose();
@@ -121,7 +128,7 @@ public class MissileEmitterRenderer extends BlockEntityWithoutLevelRenderer {
             // 头部立方体中心位于头部枢轴下方
             pose.translate(0F, -0.25F, 0F);
             pose.scale(2, 2, 2);
-            renderModel(buffer, pose, light, orbitAngle(using, ticks));
+            renderModel(buffer, pose, light, orbitAngle(false, ticks));
             pose.popPose();
         }
     }
@@ -156,4 +163,27 @@ public class MissileEmitterRenderer extends BlockEntityWithoutLevelRenderer {
             return quads;
         }
     };
+
+    // region curios
+    /** 饰品形态：保留原始头部，仅在头部位置额外绘制环绕的两个八面体 */
+    public static class CurioRenderer implements ICurioRenderer {
+        @Override
+        public <T extends LivingEntity, M extends EntityModel<T>> void render(ItemStack stack, SlotContext slotContext, PoseStack pose,
+                                                                              RenderLayerParent<T, M> parent, MultiBufferSource buffer, int light,
+                                                                              float limbSwing, float limbSwingAmount, float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
+            if (!(parent.getModel() instanceof HumanoidModel<?> model)) return;
+
+            var wearer = slotContext.entity();
+            float ticks = wearer.level().getGameTime() + partialTick;
+
+            pose.pushPose();
+            model.head.translateAndRotate(pose);
+            // 头部立方体中心位于头部枢轴下方
+            pose.translate(0F, -0.25F, 0F);
+            pose.scale(2, 2, 2);
+            renderOrbiters(buffer, pose, light, orbitAngle(false, ticks));
+            pose.popPose();
+        }
+    }
+    // endregion
 }

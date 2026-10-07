@@ -1,8 +1,11 @@
 package io.yukkuric.bundle.item;
 
+import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Multimap;
 import io.yukkuric.bundle.YukkuriCBundleMod;
 import io.yukkuric.bundle.entity.MagicMissile;
 import io.yukkuric.bundle.utils.MathUtils;
+import io.yukkuric.yclib.YCLib;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -24,6 +27,10 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.*;
 import net.neoforged.neoforge.common.NeoForgeMod;
+import top.theillusivec4.curios.api.CuriosApi;
+import top.theillusivec4.curios.api.SlotContext;
+import top.theillusivec4.curios.api.type.capability.ICurioItem;
+import top.theillusivec4.curios.api.type.capability.ICuriosItemHandler;
 
 import javax.annotation.Nullable;
 import java.util.*;
@@ -129,12 +136,14 @@ public class MissileEmitter extends ArmorItem {
         }
     }
 
-    /** 头盔槽为此物品时发射一批导弹 */
+    /** 头盔槽/主手/饰品槽为此物品时发射一批导弹 */
     public static void fireIfEquipped(Player player) {
         if (player.getItemBySlot(EquipmentSlot.HEAD).getItem() instanceof MissileEmitter emitter) {
             emitter.fireBatch(player.level(), player);
         } else if (player.getMainHandItem().getItem() instanceof MissileEmitter emitter) {
             emitter.fireBatch(player.level(), player);
+        } else if (isEquippedAsCurio(player)) {
+            YCItems.MISSILE_EMITTER.get().fireBatch(player.level(), player);
         }
     }
 
@@ -238,4 +247,31 @@ public class MissileEmitter extends ArmorItem {
             return TYPE;
         }
     }
+
+    // region curios
+    /** curios 是否加载，供高频判定复用 */
+    public static final boolean CURIOS_LOADED = YCLib.modLoaded("curios");
+
+    /** 由 mod 主类在 curios 存在时调用，注册饰品能力 */
+    public static void registerCurio() {
+        CuriosApi.registerCurio(YCItems.MISSILE_EMITTER.get(), new CurioItem());
+    }
+
+    /** 玩家的饰品槽中是否装备了本物品 */
+    public static boolean isEquippedAsCurio(Player player) {
+        if (!CURIOS_LOADED) return false;
+        Optional<ICuriosItemHandler> handler = CuriosApi.getCuriosInventory(player);
+        return handler.map(h -> h.isEquipped(YCItems.MISSILE_EMITTER.get())).orElse(false);
+    }
+
+    /** 饰品能力实现：属性沿用物品自带的全部修饰符（护甲自带 + 额外） */
+    private static class CurioItem implements ICurioItem {
+        @Override
+        public Multimap<Holder<Attribute>, AttributeModifier> getAttributeModifiers(SlotContext slotContext, ResourceLocation id, ItemStack stack) {
+            var modifiers = LinkedHashMultimap.<Holder<Attribute>, AttributeModifier>create();
+            for (var entry : YCItems.MISSILE_EMITTER.get().MERGED_ATTRS.modifiers()) modifiers.put(entry.attribute(), entry.modifier());
+            return modifiers;
+        }
+    }
+    // endregion
 }

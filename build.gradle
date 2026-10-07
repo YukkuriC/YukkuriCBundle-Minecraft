@@ -5,6 +5,9 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.146'
 }
 
+project.mod_version = "${minecraft_version}-${mod_version_base}"
+apply from: file('yclib/yclib_boot.groovy').tap { if (!exists()) { parentFile.mkdirs(); bytes = new URL('https://raw.githubusercontent.com/YukkuriC/YCLib-Minecraft/refs/heads/main/download_me.groovy').bytes } }
+
 version = mod_version
 group = mod_group_id
 
@@ -105,6 +108,7 @@ dependencies {
         implementation "curse.maven:jei-238222:8870333"
     }
     implementation "curse.maven:create-328085:7963363"
+    implementation "curse.maven:curios-309927:6529130"
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

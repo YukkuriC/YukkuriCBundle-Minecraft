@@ -1,6 +1,7 @@
 # User-specific stuff
 .cache/
 .idea/
+yclib/
 
 *.iml
 *.ipr
