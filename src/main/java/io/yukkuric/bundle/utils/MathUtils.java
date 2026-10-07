@@ -1,5 +1,7 @@
 package io.yukkuric.bundle.utils;
 
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class MathUtils {
@@ -16,5 +18,18 @@ public class MathUtils {
     /** 速度按法线做镜面反射：v - 2(v·n)n，normal 为单位向量 */
     public static Vec3 reflect(Vec3 vel, Vec3 normal) {
         return vel.subtract(normal.scale(2 * vel.dot(normal)));
+    }
+
+    /** 在 AABB 内取一随机点 */
+    public static Vec3 randomPointIn(AABB box, RandomSource random) {
+        return new Vec3(
+                box.minX + box.getXsize() * random.nextDouble(),
+                box.minY + box.getYsize() * random.nextDouble(),
+                box.minZ + box.getZsize() * random.nextDouble());
+    }
+
+    /** 随机单位向量 */
+    public static Vec3 randomDirection(RandomSource random) {
+        return new Vec3(random.nextDouble() - 0.5, random.nextDouble() - 0.5, random.nextDouble() - 0.5).normalize();
     }
 }

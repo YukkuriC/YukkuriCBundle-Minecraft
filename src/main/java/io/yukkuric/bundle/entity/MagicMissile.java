@@ -421,10 +421,7 @@ public class MagicMissile extends Projectile {
         var color = isLocked() ? COLOR_LOCKED : COLOR_FREE;
         var random = level.random;
         for (int i = 0; i < 30; i++) {
-            var pos = new Vec3(
-                    box.minX + box.getXsize() * random.nextDouble(),
-                    box.minY + box.getYsize() * random.nextDouble(),
-                    box.minZ + box.getZsize() * random.nextDouble());
+            var pos = MathUtils.randomPointIn(box, random);
             var size = EXPLODE_SIZE_MIN + (float) Math.random() * (EXPLODE_SIZE_MAX - EXPLODE_SIZE_MIN);
             explosion.add(new ExplodeBead(pos, size, EXPLODE_LIFETIME * size / EXPLODE_SIZE_MAX, isInside(pos), color, bornAt));
         }

@@ -2,6 +2,7 @@ package io.yukkuric.bundle.item;
 
 import io.yukkuric.bundle.YukkuriCBundleMod;
 import io.yukkuric.bundle.entity.MagicMissile;
+import io.yukkuric.bundle.utils.MathUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -159,7 +160,7 @@ public class MissileEmitter extends ArmorItem {
 
     /** 打向 anchor 周围 AABB_RADIUS 格立方体内随机点发射一颗魔法弹 */
     private void fireAtRandomPoint(Level level, Vec3 spawnPos, Vec3 anchor, Vec3 look, @Nullable Entity owner) {
-        Vec3 target = randomPointInBox(level.random, anchor);
+        Vec3 target = MathUtils.randomPointIn(AABB.ofSize(anchor, AABB_RADIUS * 2, AABB_RADIUS * 2, AABB_RADIUS * 2), level.random);
         var missile = new MagicMissile(level, spawnPos, launchVelocity(level.random, look), target, MISSILE_DAMAGE, owner);
         missile.tickCount += (int) (Math.random() * MagicMissile.PREWARM_TICKS);
         missile.targetSelector = this::isTarget;
@@ -169,16 +170,8 @@ public class MissileEmitter extends ArmorItem {
     /** 向前抛出：视线方向分量叠加一行随机球面方向的偏移 */
     private Vec3 launchVelocity(RandomSource random, Vec3 look) {
         double speed = LAUNCH_SPEED_MIN + random.nextDouble() * (LAUNCH_SPEED_MAX - LAUNCH_SPEED_MIN);
-        Vec3 scatter = randomDirection(random).scale(random.nextDouble() * LAUNCH_SCATTER_MAX);
+        Vec3 scatter = MathUtils.randomDirection(random).scale(random.nextDouble() * LAUNCH_SCATTER_MAX);
         return look.scale(speed).add(scatter);
-    }
-
-    /** 在 anchor 周围 AABB_RADIUS 格的立方体内取一随机点 */
-    private Vec3 randomPointInBox(RandomSource random, Vec3 anchor) {
-        return anchor.add(
-                (random.nextDouble() - 0.5) * 2 * AABB_RADIUS,
-                (random.nextDouble() - 0.5) * 2 * AABB_RADIUS,
-                (random.nextDouble() - 0.5) * 2 * AABB_RADIUS);
     }
 
     /** 起点判定：视线 raycast 方块交点与视锥内最近目标中心点取更近的一个 */
@@ -233,10 +226,6 @@ public class MissileEmitter extends ArmorItem {
     /** 暂定：属于 Enemy 的存活生物即视为目标 */
     private boolean isTarget(Entity e) {
         return e instanceof Enemy && e.isAlive();
-    }
-
-    private Vec3 randomDirection(RandomSource random) {
-        return new Vec3(random.nextDouble() - 0.5, random.nextDouble() - 0.5, random.nextDouble() - 0.5).normalize();
     }
 
     /** 左键输入只发生在客户端，需由玩家自行通知服务端发射 */
