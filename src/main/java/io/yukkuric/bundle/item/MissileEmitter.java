@@ -27,8 +27,7 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.*;
 import net.neoforged.neoforge.common.NeoForgeMod;
-import top.theillusivec4.curios.api.CuriosApi;
-import top.theillusivec4.curios.api.SlotContext;
+import top.theillusivec4.curios.api.*;
 import top.theillusivec4.curios.api.type.capability.ICurioItem;
 import top.theillusivec4.curios.api.type.capability.ICuriosItemHandler;
 
@@ -292,6 +291,7 @@ public class MissileEmitter extends ArmorItem {
             var modifiers = LinkedHashMultimap.<Holder<Attribute>, AttributeModifier>create();
             for (var entry : YCItems.MISSILE_EMITTER.get().MERGED_ATTRS.modifiers())
                 modifiers.put(entry.attribute(), entry.modifier());
+            modifiers.put(SlotAttribute.getOrCreate("head"), new AttributeModifier(IDLoc, 2, AttributeModifier.Operation.ADD_VALUE));
             return modifiers;
         }
     }
