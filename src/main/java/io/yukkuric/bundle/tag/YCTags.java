@@ -16,6 +16,7 @@ public class YCTags {
     public static class Blocks {
         public static final TagKey<Block> MengerSponges = TagKey.create(Registries.BLOCK, ID.MengerSponges);
         public static final TagKey<Block> OreTargets = TagKey.create(Registries.BLOCK, ID.OreTargets);
+        public static final TagKey<Block> PaxelMineable = TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("c", "mineable/paxel"));
     }
 
     public static class Items {

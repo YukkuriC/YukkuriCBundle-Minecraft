@@ -75,8 +75,8 @@ public class MissileEmitter extends ArmorItem {
     /** 持续使用时刷新一批导弹的间隔 tick 数 */
     private static final int FIRE_INTERVAL = 5;
 
-    public MissileEmitter(Properties properties) {
-        super(ArmorMaterials.NETHERITE, Type.HELMET, properties);
+    public MissileEmitter() {
+        super(ArmorMaterials.NETHERITE, Type.HELMET, PROPS);
         // merge attrs
         var list = new ArrayList<>(super.getDefaultAttributeModifiers().modifiers());
         list.addAll(EXTRA_ATTRS.modifiers());

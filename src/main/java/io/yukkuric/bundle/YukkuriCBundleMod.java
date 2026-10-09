@@ -56,7 +56,7 @@ public class YukkuriCBundleMod {
 
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> MAIN_TAB = CREATIVE_MODE_TABS.register("example_tab", () -> CreativeModeTab.builder().title(Component.translatable("itemGroup.yukkuric_bundle")).withTabsBefore(CreativeModeTabs.COMBAT).icon(() -> MENGER_SPONGE_DUPER.get().asItem().getDefaultInstance()).displayItems((parameters, output) -> {
         for (var e : YCItems.ITEMS.getEntries()) {
-            output.accept(e.get());
+            output.accept(e.get().getDefaultInstance());
         }
         for (var e : YCBlocks.BLOCKS.getEntries()) {
             output.accept(e.get());
