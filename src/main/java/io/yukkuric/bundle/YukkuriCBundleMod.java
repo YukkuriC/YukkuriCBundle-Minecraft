@@ -158,6 +158,7 @@ public class YukkuriCBundleMod {
             event.registerBlockEntityRenderer(YCBlocks.BE_MENGER_SPONGE_DUPER.get(), MengerSpongeDuperRenderer::new);
             event.registerBlockEntityRenderer(YCBlocks.BE_MENGER_SPONGE_MINER.get(), MengerSpongeMinerRenderer::new);
             event.registerBlockEntityRenderer(YCBlocks.BE_MENGER_SPONGE_VOID.get(), MengerSpongeVoidRenderer::new);
+            event.registerBlockEntityRenderer(YCBlocks.BE_MENGER_SPONGE_PLAYER_PROXY.get(), MengerSpongePlayerProxyRenderer::new);
             YCEntityRenderers.register(event);
         }
     }
