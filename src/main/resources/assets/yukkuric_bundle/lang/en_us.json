@@ -4,5 +4,7 @@
   "block.yukkuric_bundle.menger_sponge.void": "Menger Sponge (Void)",
   "block.yukkuric_bundle.menger_sponge.miner": "Menger Sponge (Miner)",
   "block.yukkuric_bundle.menger_sponge.player_proxy": "Menger Sponge (Player Proxy)",
-  "item.yukkuric_bundle.missile_emitter": "Missile Emitter"
+  "item.yukkuric_bundle.missile_emitter": "Magic Missile Emitter",
+  "item.yukkuric_bundle.universal_tool": "Universal Tool",
+  "foo": "bar"
 }
