@@ -109,6 +109,7 @@ dependencies {
     }
     implementation "curse.maven:create-328085:7963363"
     implementation "curse.maven:curios-309927:6529130"
+    implementation "curse.maven:mekanism-268560:7904058"
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
