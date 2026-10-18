@@ -3,6 +3,7 @@
     "yukkuric_bundle:menger_sponge/duper",
     "yukkuric_bundle:menger_sponge/miner",
     "yukkuric_bundle:menger_sponge/player_proxy",
+    "yukkuric_bundle:menger_sponge/ticker",
     "yukkuric_bundle:menger_sponge/void"
   ]
 }

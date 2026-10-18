@@ -1,8 +1,11 @@
 package io.yukkuric.bundle.datagen.menger_sponge;
 
 import io.yukkuric.bundle.YukkuriCBundleMod;
+import io.yukkuric.bundle.block.MengerSpongeTicker;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.PackOutput;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.PackType;
 import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.client.model.generators.ItemModelProvider;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
@@ -21,18 +24,26 @@ public class MengerSpongeModels extends ItemModelProvider {
         }
     }
 
-    /** 生成 block model：以基础模型为父，仅替换贴图；基础方块自身不生成 */
+    /** 生成 block model：以基础模型为父，仅替换贴图；基础方块自身与手写模型不生成 */
     private void addBlockModel(Block block) {
         var id = BuiltInRegistries.BLOCK.getKey(block);
+        addBlockModel(id);
+        // 点亮变体：模型与贴图均在原 id 后加 _lit
+        if (block instanceof MengerSpongeTicker) addBlockModel(id.withPath(id.getPath() + "_lit"));
+    }
+
+    private void addBlockModel(ResourceLocation id) {
+        if (existingFileHelper.exists(id, PackType.CLIENT_RESOURCES, ".json", "models/block")) return;
         var texture = modLoc("block/" + id.getPath());
         withExistingParent("block/" + id.getPath(), modLoc("block/" + MengerSpongeConsts.BASE_BLOCK_ID))
                 .texture("0", texture)
                 .texture("particle", texture);
     }
 
-    /** 生成 item model：以同名 block model 为父 */
+    /** 生成 item model：以同名 block model 为父；手写模型不生成 */
     private void addItemModel(Block block) {
         var id = BuiltInRegistries.BLOCK.getKey(block);
+        if (existingFileHelper.exists(id, PackType.CLIENT_RESOURCES, ".json", "models/item")) return;
         withExistingParent("item/" + id.getPath(), modLoc("block/" + id.getPath()));
     }
 }

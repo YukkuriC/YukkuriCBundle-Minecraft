@@ -36,5 +36,6 @@ public class MengerSpongeRecipes extends RecipeProvider {
         addRecipe(output, YCBlocks.MENGER_SPONGE_MINER.get(), Items.IRON_PICKAXE);
         addRecipe(output, YCBlocks.MENGER_SPONGE_VOID.get(), Items.HOPPER);
         addRecipe(output, YCBlocks.MENGER_SPONGE_PLAYER_PROXY.get(), Items.TOTEM_OF_UNDYING);
+        addRecipe(output, YCBlocks.MENGER_SPONGE_TICKER.get(), Items.BONE_MEAL);
     }
 }
