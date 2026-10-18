@@ -22,7 +22,7 @@ public class YukkuricBundleDataGen {
         var efh = event.getExistingFileHelper();
 
         // 模型先于 blockstates 注册，blockstate 引用模型时可通过共享 ExistingFileHelper 校验
-        gen.addProvider(event.includeClient(), new MengerSpongeModels(output, efh));
+        gen.addProvider(event.includeClient(), new YCItemModels(output, efh));
         gen.addProvider(event.includeClient(), new MengerSpongeBlockStates(output, efh));
         gen.addProvider(event.includeServer(), new MengerSpongeRecipes(output, lookups));
 

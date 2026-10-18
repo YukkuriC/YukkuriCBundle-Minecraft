@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "yukkuric_bundle:item/universal_tool"
+  }
+}
