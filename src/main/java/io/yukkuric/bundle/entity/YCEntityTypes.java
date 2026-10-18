@@ -7,6 +7,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import java.util.function.Supplier;
 
 import static io.yukkuric.bundle.YukkuriCBundleMod.MOD_ID;
+
 public class YCEntityTypes {
     public static final DeferredRegister<EntityType<?>> TYPES = DeferredRegister.create(BuiltInRegistries.ENTITY_TYPE, MOD_ID);
 

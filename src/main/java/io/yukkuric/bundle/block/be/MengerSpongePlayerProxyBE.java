@@ -16,7 +16,8 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.wrapper.*;
+import net.neoforged.neoforge.items.wrapper.PlayerInvWrapper;
+import net.neoforged.neoforge.items.wrapper.PlayerMainInvWrapper;
 
 import javax.annotation.Nullable;
 import java.lang.ref.WeakReference;
