@@ -11,7 +11,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import static io.yukkuric.bundle.block.YCBlocks.BE_MENGER_SPONGE_TICKER;
 
 public class MengerSpongeTickerBE extends BlockEntity {
-    public static final int MAX_EXTRA_PER_TICK = 1000;
+    public static final int MAX_EXTRA_PER_TICK = 65536;
 
     public MengerSpongeTickerBE(BlockPos pos, BlockState state) {
         super(BE_MENGER_SPONGE_TICKER.get(), pos, state);
