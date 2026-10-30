@@ -51,11 +51,15 @@ public class MengerSpongeTickerBE extends BlockEntity {
         }
         if (ticker == null && tickerR == null) return;
 
-        while (accMult > 0) {
-            accMult--;
+        // TODO: active loop checking
+        try {
+            while (accMult > 0) {
+                accMult--;
 
-            if (ticker != null) ticker.tick(level, targetPos, targetState, targetBE);
-            if (tickerR != null) tickerR.randomTick((ServerLevel) level, targetPos, level.random);
+                if (ticker != null) ticker.tick(level, targetPos, targetState, targetBE);
+                if (tickerR != null) tickerR.randomTick((ServerLevel) level, targetPos, level.random);
+            }
+        } catch (StackOverflowError e) {
         }
     }
 }
