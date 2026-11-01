@@ -11,13 +11,21 @@ import net.minecraft.world.level.block.state.BlockState;
 import static io.yukkuric.bundle.block.YCBlocks.BE_MENGER_SPONGE_TICKER;
 
 public class MengerSpongeTickerBE extends BlockEntity {
-    public static final int MAX_EXTRA_PER_TICK = 65536;
+    public static final int MAX_EXTRA_PER_TICK = 4096;
 
     public MengerSpongeTickerBE(BlockPos pos, BlockState state) {
         super(BE_MENGER_SPONGE_TICKER.get(), pos, state);
     }
     int extraCountThisTick = 0;
     int serverAgeThisTick = -1;
+
+    void accumulateExtraTicking(int age, int extraCount) {
+        if (age != serverAgeThisTick) {
+            extraCountThisTick = 0;
+            serverAgeThisTick = age;
+        }
+        extraCountThisTick = Math.min(MAX_EXTRA_PER_TICK, extraCountThisTick + extraCount);
+    }
 
     public static void tick(Level level, BlockPos pos, BlockState state, MengerSpongeTickerBE self) {
         if (!state.getValue(MengerSpongeTicker.LIT)) return;
@@ -26,16 +34,8 @@ public class MengerSpongeTickerBE extends BlockEntity {
         }
 
         // count extra ticking
-        var now = level.getServer().getTickCount();
-        if (now == self.serverAgeThisTick) {
-            if (self.extraCountThisTick >= MAX_EXTRA_PER_TICK) return;
-            self.extraCountThisTick++;
-        } else {
-            self.serverAgeThisTick = now;
-            self.extraCountThisTick = 1;
-        }
-
-        var accMult = level.getBestNeighborSignal(pos);
+        var accMult = level.getBestNeighborSignal(pos) * (1 + self.extraCountThisTick);
+        self.extraCountThisTick = 0;
         var targetPos = MengerSpongeTicker.getTargetPos(state, pos);
 
         // pick tickers
@@ -46,20 +46,19 @@ public class MengerSpongeTickerBE extends BlockEntity {
             tickerR = targetState;
         }
         var targetBE = level.getBlockEntity(targetPos);
-        if (targetBE != null) {
+        if (targetBE instanceof MengerSpongeTickerBE another) {
+            another.accumulateExtraTicking(level.getServer().getTickCount(), accMult);
+            return;
+        } else if (targetBE != null) {
             ticker = (BlockEntityTicker<BlockEntity>) targetState.getTicker(level, targetBE.getType());
         }
         if (ticker == null && tickerR == null) return;
 
-        // TODO: active loop checking
-        try {
-            while (accMult > 0) {
-                accMult--;
+        while (accMult > 0) {
+            accMult--;
 
-                if (ticker != null) ticker.tick(level, targetPos, targetState, targetBE);
-                if (tickerR != null) tickerR.randomTick((ServerLevel) level, targetPos, level.random);
-            }
-        } catch (StackOverflowError e) {
+            if (ticker != null) ticker.tick(level, targetPos, targetState, targetBE);
+            if (tickerR != null) tickerR.randomTick((ServerLevel) level, targetPos, level.random);
         }
     }
 }
