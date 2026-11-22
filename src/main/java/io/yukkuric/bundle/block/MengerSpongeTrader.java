@@ -1,6 +1,7 @@
 package io.yukkuric.bundle.block;
 
 import io.yukkuric.bundle.block.be.MengerSpongeTraderBE;
+import io.yukkuric.bundle.interop.UnboundTrades;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -70,18 +71,21 @@ public class MengerSpongeTrader extends AbstractMengerSponge<MengerSpongeTraderB
 
     private static Component getTradeTitle(@Nullable VillagerProfession profession) {
         if (profession == null) return Component.translatable("entity.minecraft.wandering_trader");
-        return Component.translatable("entity.minecraft.villager." + profession.name());
+        var id = BuiltInRegistries.VILLAGER_PROFESSION.getKey(profession);
+        return Component.translatable("entity." + id.getNamespace() + ".villager." + id.getPath());
     }
 
     /** 临时商人，仅为交易窗口提供交易列表，不进入世界 */
     private static class TradingMerchant extends Villager {
         private MerchantOffers offers;
         private final boolean wandering;
+        private final String namespace;
 
         private TradingMerchant(Level level, @Nullable VillagerProfession profession, BlockPos pos) {
             super(EntityType.VILLAGER, level, VillagerType.PLAINS);
             // 上方方块为职业方块时视为大师级村民，否则视为流浪商人
             this.wandering = profession == null;
+            this.namespace = wandering ? null : BuiltInRegistries.VILLAGER_PROFESSION.getKey(profession).getNamespace();
             this.setVillagerData(new VillagerData(VillagerType.PLAINS,
                     wandering ? VillagerProfession.NONE : profession,
                     getMerchantLevel()));
@@ -99,7 +103,11 @@ public class MengerSpongeTrader extends AbstractMengerSponge<MengerSpongeTraderB
         private MerchantOffers buildProfessionOffers(VillagerProfession profession, RandomSource random) {
             var offers = new MerchantOffers();
             var trades = VillagerTrades.TRADES.get(profession);
-            if (trades == null) return offers;
+            if (trades == null) {
+                if (UnboundTrades.MOD_ID.equals(namespace))
+                    UnboundTrades.addOffers(level(), this, offers, profession, TRADE_MULTIPLIER);
+                return offers;
+            }
             for (int i = 0; i < TRADE_MULTIPLIER; i++)
                 for (int lvl = VillagerData.MIN_VILLAGER_LEVEL; lvl <= VillagerData.MAX_VILLAGER_LEVEL; lvl++)
                     addRandomOffers(offers, trades.get(lvl), TRADES_PER_LEVEL, random);
