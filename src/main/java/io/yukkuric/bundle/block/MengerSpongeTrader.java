@@ -8,7 +8,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.ai.village.poi.PoiTypes;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerData;
 import net.minecraft.world.entity.npc.VillagerProfession;
@@ -20,6 +19,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
@@ -49,7 +49,9 @@ public class MengerSpongeTrader extends AbstractMengerSponge<MengerSpongeTraderB
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (level.isClientSide) return InteractionResult.SUCCESS;
-        var profession = findProfession(level, pos.above());
+        var be = (MengerSpongeTraderBE) level.getBlockEntity(pos);
+        be.refresh();
+        var profession = be.getProfession();
         var merchant = new TradingMerchant(level, profession, pos);
         if (!merchant.getOffers().isEmpty()) {
             merchant.setTradingPlayer(player);
@@ -58,15 +60,11 @@ public class MengerSpongeTrader extends AbstractMengerSponge<MengerSpongeTraderB
         return InteractionResult.SUCCESS;
     }
 
-    /** 取上方方块的职业方块对应职业，非职业方块时为 null */
-    @Nullable
-    private static VillagerProfession findProfession(Level level, BlockPos pos) {
-        var poi = PoiTypes.forState(level.getBlockState(pos));
-        if (poi.isEmpty()) return null;
-        for (var profession : BuiltInRegistries.VILLAGER_PROFESSION) {
-            if (profession.heldJobSite().test(poi.get())) return profession;
-        }
-        return null;
+    /** 上方方块变化时清空职业数据，渲染普通村民头 */
+    @Override
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston) {
+        if (level.isClientSide || !neighborPos.equals(pos.above())) return;
+        ((MengerSpongeTraderBE) level.getBlockEntity(pos)).clearProfession();
     }
 
     private static Component getTradeTitle(@Nullable VillagerProfession profession) {
