@@ -38,5 +38,6 @@ public class MengerSpongeRecipes extends RecipeProvider {
         addRecipe(output, YCBlocks.MENGER_SPONGE_PLAYER_PROXY.get(), Items.TOTEM_OF_UNDYING);
         addRecipe(output, YCBlocks.MENGER_SPONGE_TICKER.get(), Items.BONE_MEAL);
         addRecipe(output, YCBlocks.MENGER_SPONGE_TRADER.get(), Items.EMERALD);
+        addRecipe(output, YCBlocks.MENGER_SPONGE_ARTIFICIAL_SKY.get(), Items.ENDER_EYE);
     }
 }

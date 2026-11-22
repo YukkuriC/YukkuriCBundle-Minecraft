@@ -43,6 +43,7 @@ public class YCBlocks {
     public static final DeferredBlock<MengerSpongePlayerProxy> MENGER_SPONGE_PLAYER_PROXY = build(MengerSpongePlayerProxy.ID, MengerSpongePlayerProxy::new);
     public static final DeferredBlock<MengerSpongeTicker> MENGER_SPONGE_TICKER = build(MengerSpongeTicker.ID, MengerSpongeTicker::new);
     public static final DeferredBlock<MengerSpongeTrader> MENGER_SPONGE_TRADER = build(MengerSpongeTrader.ID, MengerSpongeTrader::new);
+    public static final DeferredBlock<MengerSpongeArtificialSky> MENGER_SPONGE_ARTIFICIAL_SKY = build(MengerSpongeArtificialSky.ID, MengerSpongeArtificialSky::new);
 
     // BE
     public static final Supplier<BlockEntityType<MengerSpongeDuperBE>> BE_MENGER_SPONGE_DUPER = buildBE(MengerSpongeDuper.ID, MengerSpongeDuperBE::new, YCBlocks.MENGER_SPONGE_DUPER::get);
@@ -51,4 +52,5 @@ public class YCBlocks {
     public static final Supplier<BlockEntityType<MengerSpongePlayerProxyBE>> BE_MENGER_SPONGE_PLAYER_PROXY = buildBE(MengerSpongePlayerProxy.ID, MengerSpongePlayerProxyBE::new, YCBlocks.MENGER_SPONGE_PLAYER_PROXY::get);
     public static final Supplier<BlockEntityType<MengerSpongeTickerBE>> BE_MENGER_SPONGE_TICKER = buildBE(MengerSpongeTicker.ID, MengerSpongeTickerBE::new, YCBlocks.MENGER_SPONGE_TICKER::get);
     public static final Supplier<BlockEntityType<MengerSpongeTraderBE>> BE_MENGER_SPONGE_TRADER = buildBE(MengerSpongeTrader.ID, MengerSpongeTraderBE::new, YCBlocks.MENGER_SPONGE_TRADER::get);
+    public static final Supplier<BlockEntityType<MengerSpongeArtificialSkyBE>> BE_MENGER_SPONGE_ARTIFICIAL_SKY = buildBE(MengerSpongeArtificialSky.ID, MengerSpongeArtificialSkyBE::new, YCBlocks.MENGER_SPONGE_ARTIFICIAL_SKY::get);
 }
