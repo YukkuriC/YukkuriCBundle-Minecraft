@@ -70,7 +70,8 @@ public class MengerSpongeTrader extends AbstractMengerSponge<MengerSpongeTraderB
     private static Component getTradeTitle(@Nullable VillagerProfession profession) {
         if (profession == null) return Component.translatable("entity.minecraft.wandering_trader");
         var id = BuiltInRegistries.VILLAGER_PROFESSION.getKey(profession);
-        return Component.translatable("entity." + id.getNamespace() + ".villager." + id.getPath());
+        var namespace = id.getNamespace().equals("minecraft") ? "" : id.getNamespace() + ".";
+        return Component.translatable("entity.minecraft.villager." + namespace + id.getPath());
     }
 
     /** 临时商人，仅为交易窗口提供交易列表，不进入世界 */
@@ -97,15 +98,15 @@ public class MengerSpongeTrader extends AbstractMengerSponge<MengerSpongeTraderB
             return wandering ? 1 : VillagerData.MAX_VILLAGER_LEVEL;
         }
 
-        /** 大师级村民的交易：各级别交易均生成 */
+        /** 大师级村民的交易：unbound 职业的交易表是空占位，交给模组自行生成；其余走原版交易表 */
         private MerchantOffers buildProfessionOffers(VillagerProfession profession, RandomSource random) {
             var offers = new MerchantOffers();
-            var trades = VillagerTrades.TRADES.get(profession);
-            if (trades == null) {
-                if (UnboundTrades.MOD_ID.equals(namespace))
-                    UnboundTrades.addOffers(level(), this, offers, profession, TRADE_MULTIPLIER);
+            if (UnboundTrades.MOD_ID.equals(namespace)) {
+                UnboundTrades.addOffers(level(), this, offers, profession, TRADE_MULTIPLIER);
                 return offers;
             }
+            var trades = VillagerTrades.TRADES.get(profession);
+            if (trades == null) return offers;
             for (int i = 0; i < TRADE_MULTIPLIER; i++)
                 for (int lvl = VillagerData.MIN_VILLAGER_LEVEL; lvl <= VillagerData.MAX_VILLAGER_LEVEL; lvl++)
                     addRandomOffers(offers, trades.get(lvl), TRADES_PER_LEVEL, random);
