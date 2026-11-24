@@ -2,7 +2,6 @@ package io.yukkuric.bundle.item;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import io.yukkuric.bundle.YukkuriCBundleMod;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -10,9 +9,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -34,7 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class AddressBook extends Item {
+public class AddressBook extends Item implements ShiftScrollable {
     public static final String ID = "address_book";
     public static final int MAX_SLOTS = 64;
     public static final Properties PROPS = new Properties()
@@ -164,7 +161,7 @@ public class AddressBook extends Item {
     }
 
     public static int rotateSlot(ItemStack stack, boolean increase) {
-        int slot = Mth.clamp(getSelectedSlot(stack) + (increase ? 1 : -1), 0, MAX_SLOTS - 1);
+        int slot = Math.floorMod(getSelectedSlot(stack) + (increase ? 1 : -1), MAX_SLOTS);
         stack.set(YCDataComponents.ADDRESS_BOOK_SLOT.get(), slot);
 
         var names = stack.getOrDefault(YCDataComponents.ADDRESS_BOOK_NAMES.get(),
@@ -179,12 +176,10 @@ public class AddressBook extends Item {
         return slot;
     }
 
-    /** shift+滚轮由客户端上报，服务端改槽位后回显到动作栏 */
-    public static void handleScroll(Player player, boolean offHand, double delta) {
-        ItemStack stack = player.getItemInHand(offHand ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND);
-        if (!(stack.getItem() instanceof AddressBook)) return;
-
-        int slot = rotateSlot(stack, delta < 0);
+    /** shift+滚轮切换槽位并回显到动作栏 */
+    @Override
+    public void onShiftScroll(Player player, ItemStack stack, boolean increase) {
+        int slot = rotateSlot(stack, increase);
         player.displayClientMessage(
                 Component.translatable("tooltip.yukkuric_bundle.address_book.slot", slot)
                         .withStyle(ChatFormatting.GRAY), true);
@@ -209,22 +204,6 @@ public class AddressBook extends Item {
 
         public BlockPos target() {
             return this.pos.relative(this.facing);
-        }
-    }
-
-    /** 客户端拦截滚轮后通知服务端切换槽位 */
-    public record ScrollPayload(boolean offHand, double delta) implements CustomPacketPayload {
-        public static final Type<ScrollPayload> TYPE = new Type<>(YukkuriCBundleMod.modLoc(ID + "_scroll"));
-
-        public static final StreamCodec<RegistryFriendlyByteBuf, ScrollPayload> STREAM_CODEC = StreamCodec.composite(
-                ByteBufCodecs.BOOL, ScrollPayload::offHand,
-                ByteBufCodecs.DOUBLE, ScrollPayload::delta,
-                ScrollPayload::new
-        );
-
-        @Override
-        public Type<? extends CustomPacketPayload> type() {
-            return TYPE;
         }
     }
 }

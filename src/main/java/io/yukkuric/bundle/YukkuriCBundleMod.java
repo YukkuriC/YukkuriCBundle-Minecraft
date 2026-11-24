@@ -9,10 +9,10 @@ import io.yukkuric.bundle.client.item.MissileEmitterRenderer;
 import io.yukkuric.bundle.client.particle.FadeLightParticle;
 import io.yukkuric.bundle.damage.YCDamageTypes;
 import io.yukkuric.bundle.entity.YCEntityTypes;
-import io.yukkuric.bundle.item.AddressBook;
 import io.yukkuric.bundle.item.MissileEmitter;
 import io.yukkuric.bundle.item.YCDataComponents;
 import io.yukkuric.bundle.item.YCItems;
+import io.yukkuric.bundle.net.ScrollSwitch;
 import io.yukkuric.bundle.net.YCNetwork;
 import io.yukkuric.bundle.particle.YCParticleTypes;
 import io.yukkuric.yclib.YCLib;
@@ -115,16 +115,10 @@ public class YukkuriCBundleMod {
             Minecraft minecraft = Minecraft.getInstance();
             var player = minecraft.player;
             if (minecraft.screen != null || player == null) return;
-            if (!player.isShiftKeyDown() || player.isSpectator()) return;
-
-            boolean offHand;
-            if (player.getMainHandItem().getItem() instanceof AddressBook) offHand = false;
-            else if (player.getOffhandItem().getItem() instanceof AddressBook) offHand = true;
-            else return;
+            if (!ScrollSwitch.tryScrollOnClient(player, event.getScrollDeltaY())) return;
 
             // 拦截滚轮，避免切换快捷栏
             event.setCanceled(true);
-            PacketDistributor.sendToServer(new AddressBook.ScrollPayload(offHand, event.getScrollDeltaY()));
         }
 
         @SubscribeEvent

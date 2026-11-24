@@ -9,8 +9,6 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -18,7 +16,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.*;
 import net.minecraft.world.item.component.*;
 import net.minecraft.world.item.enchantment.*;
-import net.minecraft.world.level.Level;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
@@ -27,7 +24,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 
-public class UniversalTool extends DiggerItem {
+public class UniversalTool extends DiggerItem implements ShiftScrollable {
     public static final String ID = "universal_tool";
     public static final ResourceLocation IDLoc = YukkuriCBundleMod.modLoc(ID);
     public static final Properties PROPS = new Properties()
@@ -68,13 +65,17 @@ public class UniversalTool extends DiggerItem {
         return MERGED_ATTRS;
     }
 
-    private ItemStack _cached;
+    /** 每线程一份缓存：客户端线程用客户端注册表，服务端线程用服务端注册表 */
+    private final ThreadLocal<ItemStack> _cached = new ThreadLocal<>();
+
     public ItemStack getDefaultInstance() {
-        if (_cached == null) {
-            _cached = super.getDefaultInstance();
-            UpdateEnchantmentsByMode(_cached);
-        }
-        return _cached;
+        var cached = _cached.get();
+        if (cached != null) return cached;
+
+        var stack = super.getDefaultInstance();
+        UpdateEnchantmentsByMode(stack);
+        _cached.set(stack);
+        return stack;
     }
 
     /** 显示为“{原名} ({模式名})” */
@@ -85,16 +86,12 @@ public class UniversalTool extends DiggerItem {
         return modeName == null ? name : Component.empty().append(name).append(" (").append(modeName).append(")");
     }
 
-    /** shift+右键点空气时切换模式，仅服务端执行，结果随物品栏同步回客户端 */
+    /** shift+滚轮切换模式，服务端执行，结果随物品栏同步回客户端 */
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-        ItemStack stack = player.getItemInHand(hand);
-        if (!level.isClientSide && player.isShiftKeyDown()) {
-            var mode = GetMode(stack);
-            stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData((mode + 1) % MODE_ENCHANTMENTS.length));
-            UpdateEnchantmentsByMode(stack);
-        }
-        return InteractionResultHolder.pass(stack);
+    public void onShiftScroll(Player player, ItemStack stack, boolean increase) {
+        int mode = Math.floorMod(GetMode(stack) + (increase ? 1 : -1), MODE_ENCHANTMENTS.length);
+        stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(mode));
+        UpdateEnchantmentsByMode(stack);
     }
 
     public static int GetMode(ItemStack src) {
@@ -132,11 +129,11 @@ public class UniversalTool extends DiggerItem {
         return enchantment.value().description();
     }
 
-    /** 附魔 holder 属于数据包注册表，只能从运行中的服务端（含单人集成服务端）或客户端连接取得 */
+    /** 附魔 holder 属于数据包注册表，按当前线程取对应侧（服务端/客户端）的注册表 */
     @Nullable
     private static HolderLookup.Provider currentRegistries() {
         var server = ServerLifecycleHooks.getCurrentServer();
-        if (server != null) return server.registryAccess();
+        if (server != null && server.isSameThread()) return server.registryAccess();
         if (FMLEnvironment.dist == Dist.CLIENT) {
             var level = Minecraft.getInstance().level;
             if (level != null) return level.registryAccess();
