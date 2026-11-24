@@ -11,6 +11,7 @@ public class YCItems {
 
     public static final DeferredItem<MissileEmitter> MISSILE_EMITTER = ITEMS.register(MissileEmitter.ID, MissileEmitter::new);
     public static final DeferredItem<UniversalTool> UNIVERSAL_TOOL = ITEMS.register(UniversalTool.ID, UniversalTool::new);
+    public static final DeferredItem<AddressBook> ADDRESS_BOOK = ITEMS.register(AddressBook.ID, AddressBook::new);
 
     public static void register(IEventBus bus) {
         ITEMS.register(bus);

@@ -9,5 +9,10 @@
   "block.yukkuric_bundle.menger_sponge.artificial_sky": "Menger Sponge (Artificial Sky)",
   "item.yukkuric_bundle.missile_emitter": "Magic Missile Emitter",
   "item.yukkuric_bundle.universal_tool": "Universal Tool",
+  "item.yukkuric_bundle.address_book": "Address Book",
+  "tooltip.yukkuric_bundle.address_book.slot": "Selected Slot %d",
+  "tooltip.yukkuric_bundle.address_book.empty": "No location stored in this slot",
+  "tooltip.yukkuric_bundle.address_book.location": "Location: %s (%d, %d, %d)",
+  "tooltip.yukkuric_bundle.address_book.saved": "Saved location to slot %d",
   "foo": "bar"
 }

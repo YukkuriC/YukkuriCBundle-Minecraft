@@ -9,5 +9,10 @@
   "block.yukkuric_bundle.menger_sponge.artificial_sky": "门格海绵 (人造天空)",
   "item.yukkuric_bundle.missile_emitter": "魔法弹发射器",
   "item.yukkuric_bundle.universal_tool": "万能工具",
+  "item.yukkuric_bundle.address_book": "地址簿",
+  "tooltip.yukkuric_bundle.address_book.slot": "所选槽位 %d",
+  "tooltip.yukkuric_bundle.address_book.empty": "该槽位未存储位置",
+  "tooltip.yukkuric_bundle.address_book.location": "位置：%s（%d, %d, %d）",
+  "tooltip.yukkuric_bundle.address_book.saved": "已将位置存入槽位 %d",
   "foo": "bar"
 }

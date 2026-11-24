@@ -9,8 +9,11 @@ import io.yukkuric.bundle.client.item.MissileEmitterRenderer;
 import io.yukkuric.bundle.client.particle.FadeLightParticle;
 import io.yukkuric.bundle.damage.YCDamageTypes;
 import io.yukkuric.bundle.entity.YCEntityTypes;
+import io.yukkuric.bundle.item.AddressBook;
 import io.yukkuric.bundle.item.MissileEmitter;
+import io.yukkuric.bundle.item.YCDataComponents;
 import io.yukkuric.bundle.item.YCItems;
+import io.yukkuric.bundle.net.YCNetwork;
 import io.yukkuric.bundle.particle.YCParticleTypes;
 import io.yukkuric.yclib.YCLib;
 import net.minecraft.client.Minecraft;
@@ -36,7 +39,6 @@ import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import org.slf4j.Logger;
@@ -66,13 +68,12 @@ public class YukkuriCBundleMod {
     public YukkuriCBundleMod(IEventBus modEventBus, ModContainer modContainer) {
         YCBlocks.register(modEventBus);
         YCItems.register(modEventBus);
+        YCDataComponents.register(modEventBus);
         YCEntityTypes.TYPES.register(modEventBus);
         YCDamageTypes.DAMAGE_TYPES.register(modEventBus);
         YCParticleTypes.register(modEventBus);
         CREATIVE_MODE_TABS.register(modEventBus);
-        modEventBus.addListener((RegisterPayloadHandlersEvent event) -> event.registrar("1").playToServer(
-                MissileEmitter.FirePayload.TYPE, MissileEmitter.FirePayload.STREAM_CODEC,
-                (payload, context) -> MissileEmitter.fireIfEquipped(context.player())));
+        YCNetwork.register(modEventBus);
 
         if (YCLib.modLoaded("curios")) {
             // 饰品能力注册需在物品注册完成之后，故推迟到 common setup
@@ -107,6 +108,23 @@ public class YukkuriCBundleMod {
                     return 0;
                 }
             }, YCItems.MISSILE_EMITTER.get());
+        }
+
+        @SubscribeEvent
+        public static void onScroll(InputEvent.MouseScrollingEvent event) {
+            Minecraft minecraft = Minecraft.getInstance();
+            var player = minecraft.player;
+            if (minecraft.screen != null || player == null) return;
+            if (!player.isShiftKeyDown() || player.isSpectator()) return;
+
+            boolean offHand;
+            if (player.getMainHandItem().getItem() instanceof AddressBook) offHand = false;
+            else if (player.getOffhandItem().getItem() instanceof AddressBook) offHand = true;
+            else return;
+
+            // 拦截滚轮，避免切换快捷栏
+            event.setCanceled(true);
+            PacketDistributor.sendToServer(new AddressBook.ScrollPayload(offHand, event.getScrollDeltaY()));
         }
 
         @SubscribeEvent
